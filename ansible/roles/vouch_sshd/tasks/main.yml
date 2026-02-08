@@ -1,6 +1,6 @@
-- name: Fetch Vouch CA public key from {{ vouch_instance_url }}
+- name: Fetch org CA public key from {{ vouch_instance_url }}
   ansible.builtin.uri:
-    url: "{{ vouch_instance_url }}{{ vouch_ca_public_key_endpoint }}"
+    url: "{{ vouch_instance_url }}/org/{{ vouch_org }}/ssh/ca.pub"
     return_content: true
   register: vouch_ca_response
 
@@ -12,32 +12,6 @@
     group: root
     mode: "0644"
   notify: Restart sshd
-
-- name: Install authorized principals command
-  ansible.builtin.template:
-    src: vouch-authorized-principals.j2
-    dest: "{{ vouch_principals_command_path }}"
-    owner: root
-    group: root
-    mode: "0755"
-  when: vouch_allowed_domains | length > 0 or vouch_authorized_principals | length > 0
-  notify: Restart sshd
-
-- name: Write allowed domains file
-  ansible.builtin.copy:
-    content: "{{ vouch_allowed_domains | join('\n') }}\n"
-    dest: /etc/ssh/vouch-allowed-domains
-    owner: root
-    group: root
-    mode: "0644"
-  when: vouch_allowed_domains | length > 0
-  notify: Restart sshd
-
-- name: Remove allowed domains file when no domains configured
-  ansible.builtin.file:
-    path: /etc/ssh/vouch-allowed-domains
-    state: absent
-  when: vouch_allowed_domains | length == 0
 
 - name: Create sshd config drop-in for Vouch CA
   ansible.builtin.template:
