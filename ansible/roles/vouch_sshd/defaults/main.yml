@@ -1,0 +1,19 @@
+vouch_instance_url: "https://us.vouch.sh"
+
+vouch_ca_key_path: /etc/ssh/vouch-ca.pub
+
+vouch_authorized_principals_dir: /etc/ssh/auth_principals
+
+# Controls which cert principals can log in as which local user.
+# When set, sshd only allows a certificate if its principal appears
+# in the file for the target username.
+vouch_authorized_principals: {}
+#   root:
+#     - admin
+#   deploy:
+#     - deploy
+#     - ci
+
+vouch_revoked_keys_path: /etc/ssh/vouch-revoked-keys
+
+vouch_sshd_config_path: /etc/ssh/sshd_config.d/vouch-ca.conf
