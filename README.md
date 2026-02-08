@@ -104,25 +104,17 @@ All modules follow the principle of least privilege:
 
 Configures `sshd` on target hosts to trust the Vouch SSH CA, enabling certificate-based authentication. Users with a Vouch-signed SSH certificate can authenticate without individual public keys in `authorized_keys`.
 
-Vouch issues per-organization CAs off its root CA. Each server trusts only its org's CA — access control is the CA trust boundary itself, not a script parsing certs at login time.
-
 **What it does:**
-- Fetches the org CA public key from `{{ vouch_instance_url }}/org/{{ vouch_org }}/ssh/ca.pub`
+- Fetches the Vouch CA public key from `us.vouch.sh/ssh/ca.pub`
 - Installs it to `/etc/ssh/vouch-ca.pub` and adds `TrustedUserCAKeys` via `sshd_config.d` drop-in
 - Configures `RevokedKeys` for certificate revocation
-- Optionally restricts which cert principals can log in as which local user via `AuthorizedPrincipalsFile`
+- Uses `AuthorizedPrincipalsFile` to control which cert principals can log in as which local user
 
 Re-running the playbook picks up any CA key rotations automatically.
 
 ### Access Control
 
-**Org-level** — set `vouch_org` to trust only that org's CA. Only certs signed by that org's CA are accepted:
-
-```yaml
-vouch_org: acme
-```
-
-**Per-user principals** — optionally restrict which cert principals can log in as which local user:
+Use `vouch_authorized_principals` to control which certificate principals can log in as which local user. sshd only allows a certificate if its principal appears in the file for the target username:
 
 ```yaml
 vouch_authorized_principals:
@@ -132,6 +124,8 @@ vouch_authorized_principals:
     - deploy
     - ci
 ```
+
+With this config, only certs containing the `admin` principal can SSH in as `root`, and only `deploy` or `ci` principals can SSH in as `deploy`.
 
 ### Usage
 
@@ -144,7 +138,6 @@ ansible-playbook -i ansible/inventory/hosts ansible/playbooks/sshd-ca.yml
 | Name | Default | Description |
 |------|---------|-------------|
 | `vouch_instance_url` | `https://us.vouch.sh` | Base URL of the Vouch instance |
-| `vouch_org` | `""` | Organization slug — determines which org CA to trust |
 | `vouch_ca_key_path` | `/etc/ssh/vouch-ca.pub` | Where to write the CA key on the host |
 | `vouch_authorized_principals` | `{}` | Map of username to list of allowed principals |
 | `vouch_revoked_keys_path` | `/etc/ssh/vouch-revoked-keys` | Path to the revoked keys file |

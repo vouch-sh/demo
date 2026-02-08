@@ -1,6 +1,6 @@
-- name: Fetch org CA public key from {{ vouch_instance_url }}
+- name: Fetch Vouch CA public key from {{ vouch_instance_url }}
   ansible.builtin.uri:
-    url: "{{ vouch_instance_url }}/org/{{ vouch_org }}/ssh/ca.pub"
+    url: "{{ vouch_instance_url }}/ssh/ca.pub"
     return_content: true
   register: vouch_ca_response
 

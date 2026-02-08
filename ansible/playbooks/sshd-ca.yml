@@ -5,10 +5,6 @@
   roles:
     - role: vouch_sshd
       vars:
-        vouch_org: acme
-
-        # Only certs with the "admin" principal can log in as root,
-        # and "deploy"/"ci" principals can log in as deploy.
         vouch_authorized_principals:
           root:
             - admin
