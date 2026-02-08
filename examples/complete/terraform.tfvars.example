@@ -1,0 +1,2 @@
+vouch_issuer_url = "https://auth.vouch.sh"
+gcp_project_id   = "my-gcp-project"
