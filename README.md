@@ -109,9 +109,34 @@ Configures `sshd` on target hosts to trust the Vouch SSH CA, enabling certificat
 - Installs it to `/etc/ssh/vouch-ca.pub`
 - Adds `TrustedUserCAKeys` to sshd config (via `sshd_config.d` drop-in)
 - Configures `RevokedKeys` for certificate revocation
-- Optionally sets up per-user `AuthorizedPrincipalsFile` to control which certificate principals can log in as which users
+- Controls access by **domain** and/or **principal** via `AuthorizedPrincipalsCommand`
 
 Re-running the playbook picks up any CA key rotations automatically.
+
+### Access Control
+
+The role supports two complementary ways to control who can SSH in:
+
+**Domain-based** — accept any certificate whose principal matches `*@<domain>`:
+
+```yaml
+vouch_allowed_domains:
+  - acme.com
+  - contractor.acme.com
+```
+
+**Principal-based** — restrict which principals can log in as which local user:
+
+```yaml
+vouch_authorized_principals:
+  root:
+    - admin
+  deploy:
+    - deploy
+    - ci
+```
+
+Both can be used together. When either is configured, sshd calls an `AuthorizedPrincipalsCommand` script at login time that extracts principals from the presented certificate, checks them against allowed domains, and also checks static per-user principal mappings.
 
 ### Usage
 
@@ -126,6 +151,7 @@ ansible-playbook -i ansible/inventory/hosts ansible/playbooks/sshd-ca.yml
 | `vouch_instance_url` | `https://us.vouch.sh` | Base URL of the Vouch instance to fetch the CA key from |
 | `vouch_ca_public_key_endpoint` | `/ssh/ca.pub` | Path to the CA public key endpoint |
 | `vouch_ca_key_path` | `/etc/ssh/vouch-ca.pub` | Where to write the CA key on the host |
+| `vouch_allowed_domains` | `[]` | Email domains allowed to SSH in (e.g. `["acme.com"]`) |
 | `vouch_authorized_principals` | `{}` | Map of username to list of allowed principals |
 | `vouch_revoked_keys_path` | `/etc/ssh/vouch-revoked-keys` | Path to the revoked keys file |
 | `vouch_sshd_config_path` | `/etc/ssh/sshd_config.d/vouch-ca.conf` | sshd config drop-in path |

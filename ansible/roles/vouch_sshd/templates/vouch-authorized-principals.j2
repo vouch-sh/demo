@@ -1,0 +1,39 @@
+#!/bin/bash
+set -euo pipefail
+
+# AuthorizedPrincipalsCommand for Vouch SSH CA.
+# Called by sshd as: {{ vouch_principals_command_path }} %u %t %k
+#
+# Extracts principals from the presented certificate and outputs those
+# that are authorized — either by matching an allowed domain or by
+# appearing in the static per-user principals file.
+
+ALLOWED_DOMAINS_FILE="/etc/ssh/vouch-allowed-domains"
+PRINCIPALS_DIR="{{ vouch_authorized_principals_dir }}"
+USERNAME="$1"
+
+# Write the cert to a temp file so ssh-keygen can parse it.
+TMPFILE=$(mktemp)
+trap 'rm -f "$TMPFILE"' EXIT
+echo "$2 $3" > "$TMPFILE"
+
+# Extract the list of principals embedded in the certificate.
+CERT_PRINCIPALS=$(ssh-keygen -L -f "$TMPFILE" 2>/dev/null \
+  | sed -n '/Principals:/,/Critical Options:/p' \
+  | grep '^ ' \
+  | tr -d ' ' || true)
+
+# Check each certificate principal against allowed domains.
+if [ -f "$ALLOWED_DOMAINS_FILE" ]; then
+    for principal in $CERT_PRINCIPALS; do
+        domain="${principal##*@}"
+        if [ "$domain" != "$principal" ] && grep -qFx "$domain" "$ALLOWED_DOMAINS_FILE"; then
+            echo "$principal"
+        fi
+    done
+fi
+
+# Output static per-user principals (if configured).
+if [ -f "$PRINCIPALS_DIR/$USERNAME" ]; then
+    cat "$PRINCIPALS_DIR/$USERNAME"
+fi
