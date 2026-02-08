@@ -105,23 +105,26 @@ All modules follow the principle of least privilege:
 Configures `sshd` on target hosts to trust the Vouch SSH CA, enabling certificate-based authentication. Users with a Vouch-signed SSH certificate can authenticate without individual public keys in `authorized_keys`.
 
 **What it does:**
-- Installs the Vouch CA public key to `/etc/ssh/vouch-ca.pub`
+- Fetches the CA public key directly from the Vouch instance (`us.vouch.sh` by default)
+- Installs it to `/etc/ssh/vouch-ca.pub`
 - Adds `TrustedUserCAKeys` to sshd config (via `sshd_config.d` drop-in)
 - Configures `RevokedKeys` for certificate revocation
 - Optionally sets up per-user `AuthorizedPrincipalsFile` to control which certificate principals can log in as which users
 
+Re-running the playbook picks up any CA key rotations automatically.
+
 ### Usage
 
 ```bash
-ansible-playbook -i ansible/inventory/hosts ansible/playbooks/sshd-ca.yml \
-  -e vouch_ca_public_key_file=~/.ssh/vouch-ca.pub
+ansible-playbook -i ansible/inventory/hosts ansible/playbooks/sshd-ca.yml
 ```
 
 ### Role Variables
 
 | Name | Default | Description |
 |------|---------|-------------|
-| `vouch_ca_public_key` | `""` | Contents of the CA public key |
+| `vouch_instance_url` | `https://us.vouch.sh` | Base URL of the Vouch instance to fetch the CA key from |
+| `vouch_ca_public_key_endpoint` | `/ssh/ca.pub` | Path to the CA public key endpoint |
 | `vouch_ca_key_path` | `/etc/ssh/vouch-ca.pub` | Where to write the CA key on the host |
 | `vouch_authorized_principals` | `{}` | Map of username to list of allowed principals |
 | `vouch_revoked_keys_path` | `/etc/ssh/vouch-revoked-keys` | Path to the revoked keys file |
