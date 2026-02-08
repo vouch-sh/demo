@@ -1,8 +1,8 @@
-# Vouch Demo Terraform Modules
+# Vouch Demo
 
-Terraform modules that deploy the server-side configuration needed to integrate with [Vouch](https://github.com/vouch-sh). Each module sets up OIDC-based workload identity federation so that Vouch-authenticated workloads can obtain short-lived credentials without static secrets.
+Server-side configuration needed to integrate with [Vouch](https://github.com/vouch-sh). Includes Terraform modules for OIDC-based workload identity federation across cloud providers, and an Ansible role for configuring SSH certificate authentication.
 
-## Modules
+## Terraform Modules
 
 ### `modules/aws`
 
@@ -97,3 +97,32 @@ All modules follow the principle of least privilege:
 - **AWS**: Role gets `ReadOnlyAccess` only. Override by attaching additional policies outside the module.
 - **GCP**: Service account gets `roles/viewer` only. Grant additional roles as needed.
 - **Kubernetes**: ClusterRole is scoped to token review, service account reads, and pod/namespace discovery.
+
+## Ansible
+
+### `ansible/roles/vouch_sshd`
+
+Configures `sshd` on target hosts to trust the Vouch SSH CA, enabling certificate-based authentication. Users with a Vouch-signed SSH certificate can authenticate without individual public keys in `authorized_keys`.
+
+**What it does:**
+- Installs the Vouch CA public key to `/etc/ssh/vouch-ca.pub`
+- Adds `TrustedUserCAKeys` to sshd config (via `sshd_config.d` drop-in)
+- Configures `RevokedKeys` for certificate revocation
+- Optionally sets up per-user `AuthorizedPrincipalsFile` to control which certificate principals can log in as which users
+
+### Usage
+
+```bash
+ansible-playbook -i ansible/inventory/hosts ansible/playbooks/sshd-ca.yml \
+  -e vouch_ca_public_key_file=~/.ssh/vouch-ca.pub
+```
+
+### Role Variables
+
+| Name | Default | Description |
+|------|---------|-------------|
+| `vouch_ca_public_key` | `""` | Contents of the CA public key |
+| `vouch_ca_key_path` | `/etc/ssh/vouch-ca.pub` | Where to write the CA key on the host |
+| `vouch_authorized_principals` | `{}` | Map of username to list of allowed principals |
+| `vouch_revoked_keys_path` | `/etc/ssh/vouch-revoked-keys` | Path to the revoked keys file |
+| `vouch_sshd_config_path` | `/etc/ssh/sshd_config.d/vouch-ca.conf` | sshd config drop-in path |

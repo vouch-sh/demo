@@ -1,0 +1,14 @@
+---
+- name: Configure sshd to trust Vouch SSH CA
+  hosts: all
+  become: true
+  roles:
+    - role: vouch_sshd
+      vars:
+        vouch_ca_public_key: "{{ lookup('file', vouch_ca_public_key_file) }}"
+        vouch_authorized_principals:
+          root:
+            - admin
+          deploy:
+            - deploy
+            - ci

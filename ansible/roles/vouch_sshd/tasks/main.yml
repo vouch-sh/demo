@@ -1,0 +1,47 @@
+- name: Install Vouch CA public key
+  ansible.builtin.copy:
+    content: "{{ vouch_ca_public_key }}"
+    dest: "{{ vouch_ca_key_path }}"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart sshd
+
+- name: Create sshd config drop-in for Vouch CA
+  ansible.builtin.template:
+    src: vouch-ca.conf.j2
+    dest: "{{ vouch_sshd_config_path }}"
+    owner: root
+    group: root
+    mode: "0644"
+    validate: "sshd -t -f %s"
+  notify: Restart sshd
+
+- name: Create authorized principals directory
+  ansible.builtin.file:
+    path: "{{ vouch_authorized_principals_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  when: vouch_authorized_principals | length > 0
+
+- name: Write per-user authorized principals files
+  ansible.builtin.copy:
+    content: "{{ item.value | join('\n') }}\n"
+    dest: "{{ vouch_authorized_principals_dir }}/{{ item.key }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop: "{{ vouch_authorized_principals | dict2items }}"
+  when: vouch_authorized_principals | length > 0
+
+- name: Initialize revoked keys file
+  ansible.builtin.file:
+    path: "{{ vouch_revoked_keys_path }}"
+    state: touch
+    owner: root
+    group: root
+    mode: "0644"
+    modification_time: preserve
+    access_time: preserve
