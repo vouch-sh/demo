@@ -20,9 +20,3 @@ variable "aws_role_arn" {
   type        = string
   default     = ""
 }
-
-variable "gcp_service_account" {
-  description = "Email of the GCP service account for GKE Workload Identity annotation (leave empty to skip)"
-  type        = string
-  default     = ""
-}

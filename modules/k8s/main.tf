@@ -10,22 +10,15 @@ resource "kubernetes_namespace" "vouch" {
 }
 
 # Service account for workloads that authenticate via Vouch.
-# Annotations bind this SA to cloud provider identities:
-#   - AWS: eks.amazonaws.com/role-arn for IRSA
-#   - GCP: iam.gke.io/gcp-service-account for Workload Identity
+# Annotated with the AWS IAM role ARN for IRSA (IAM Roles for Service Accounts).
 resource "kubernetes_service_account" "vouch" {
   metadata {
     name      = "vouch"
     namespace = kubernetes_namespace.vouch.metadata[0].name
 
-    annotations = merge(
-      var.aws_role_arn != "" ? {
-        "eks.amazonaws.com/role-arn" = var.aws_role_arn
-      } : {},
-      var.gcp_service_account != "" ? {
-        "iam.gke.io/gcp-service-account" = var.gcp_service_account
-      } : {},
-    )
+    annotations = var.aws_role_arn != "" ? {
+      "eks.amazonaws.com/role-arn" = var.aws_role_arn
+    } : {}
 
     labels = {
       "app.kubernetes.io/name"       = "vouch"

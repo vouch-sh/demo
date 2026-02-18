@@ -3,21 +3,69 @@ module "aws" {
   source = "./modules/aws"
 
   vouch_issuer_url = var.vouch_issuer_url
-}
 
-module "gcp" {
-  count  = var.gcp_enabled ? 1 : 0
-  source = "./modules/gcp"
+  demo_services_enabled     = local.demo_services_enabled
+  codecommit_repository_arn = var.codecommit_enabled ? module.aws_codecommit[0].arn : ""
 
-  vouch_issuer_url = var.vouch_issuer_url
-  project_id       = var.gcp_project_id
+  tags = var.tags
 }
 
 module "k8s" {
   count  = var.k8s_enabled ? 1 : 0
   source = "./modules/k8s"
 
-  vouch_issuer_url    = var.vouch_issuer_url
-  aws_role_arn        = var.aws_enabled ? module.aws[0].role_arn : ""
-  gcp_service_account = var.gcp_enabled ? module.gcp[0].service_account_email : ""
+  vouch_issuer_url = var.vouch_issuer_url
+  aws_role_arn     = var.aws_enabled ? module.aws[0].role_arn : ""
+}
+
+module "aws_vpc" {
+  count  = local.vpc_needed ? 1 : 0
+  source = "./modules/aws-vpc"
+
+  name_prefix = var.name_prefix
+  tags        = var.tags
+}
+
+module "aws_codecommit" {
+  count  = var.codecommit_enabled ? 1 : 0
+  source = "./modules/aws-codecommit"
+
+  name_prefix = var.name_prefix
+  tags        = var.tags
+}
+
+module "aws_codeartifact" {
+  count  = var.codeartifact_enabled ? 1 : 0
+  source = "./modules/aws-codeartifact"
+
+  name_prefix = var.name_prefix
+  tags        = var.tags
+}
+
+module "aws_ecr" {
+  count  = var.ecr_enabled ? 1 : 0
+  source = "./modules/aws-ecr"
+
+  name_prefix = var.name_prefix
+  tags        = var.tags
+}
+
+module "aws_ec2" {
+  count  = var.ec2_enabled ? 1 : 0
+  source = "./modules/aws-ec2"
+
+  name_prefix       = var.name_prefix
+  subnet_id         = module.aws_vpc[0].public_subnet_ids[0]
+  vpc_id            = module.aws_vpc[0].vpc_id
+  tags              = var.tags
+}
+
+module "aws_eks" {
+  count  = var.eks_enabled ? 1 : 0
+  source = "./modules/aws-eks"
+
+  name_prefix       = var.name_prefix
+  subnet_ids        = module.aws_vpc[0].public_subnet_ids
+  vouch_role_arn    = var.aws_enabled ? module.aws[0].role_arn : ""
+  tags              = var.tags
 }

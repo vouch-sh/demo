@@ -20,6 +20,18 @@ variable "role_name" {
   default     = "vouch-demo"
 }
 
+variable "demo_services_enabled" {
+  description = "Whether to attach demo service permissions (CodeCommit, CodeArtifact, ECR, SSM, EKS, Bedrock)"
+  type        = bool
+  default     = false
+}
+
+variable "codecommit_repository_arn" {
+  description = "ARN of the CodeCommit repository to scope permissions (empty string allows all)"
+  type        = string
+  default     = ""
+}
+
 variable "tags" {
   description = "Tags to apply to all resources"
   type        = map(string)

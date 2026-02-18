@@ -1,2 +1,8 @@
 vouch_issuer_url = "https://auth.vouch.sh"
-gcp_project_id   = "my-gcp-project"
+
+# Enable demo services as needed:
+# codecommit_enabled   = true
+# codeartifact_enabled = true
+# ecr_enabled          = true
+# ec2_enabled          = true
+# eks_enabled          = true

@@ -1,120 +1,169 @@
 # Vouch Demo
 
-Server-side configuration needed to integrate with [Vouch](https://github.com/vouch-sh). Includes Terraform modules for OIDC-based workload identity federation across cloud providers, and an Ansible role for configuring SSH certificate authentication.
+Terraform modules and an Ansible role for provisioning AWS demo resources to test [Vouch](https://github.com/vouch-sh) credential helpers. Deploy infrastructure, configure Vouch, and verify access to AWS services using OIDC-based workload identity.
 
-## Terraform Modules
+## Prerequisites
 
-### `modules/aws`
+- **Terraform** >= 1.5
+- **AWS account** with admin access (for provisioning resources)
+- **Vouch CLI** installed:
 
-Creates an AWS IAM OIDC provider pointing at the Vouch issuer and an IAM role with a trust policy that accepts Vouch-issued tokens. Attaches `ReadOnlyAccess` by default.
+  **macOS:**
+  ```bash
+  brew install vouch-sh/tap/vouch
+  brew services start vouch
+  ```
 
-**Resources created:**
-- `aws_iam_openid_connect_provider` — validates Vouch OIDC tokens
-- `aws_iam_role` — assumable via `sts:AssumeRoleWithWebIdentity`
-- `aws_iam_role_policy_attachment` — read-only access (default)
+  **Debian/Ubuntu:**
+  ```bash
+  curl -fsSL https://packages.vouch.sh/gpg | sudo gpg --dearmor -o /usr/share/keyrings/vouch-archive-keyring.gpg
+  echo "deb [signed-by=/usr/share/keyrings/vouch-archive-keyring.gpg] https://packages.vouch.sh/apt stable main" | sudo tee /etc/apt/sources.list.d/vouch.list
+  sudo apt update && sudo apt install vouch
+  ```
 
-### `modules/gcp`
+  **Fedora:**
+  ```bash
+  sudo dnf config-manager --add-repo https://packages.vouch.sh/rpm/vouch.repo
+  sudo dnf install vouch
+  ```
 
-Creates a GCP Workload Identity Pool and OIDC provider that trusts the Vouch issuer, plus a service account that federated identities can impersonate. Grants `roles/viewer` by default.
-
-**Resources created:**
-- `google_iam_workload_identity_pool` — groups Vouch identities
-- `google_iam_workload_identity_pool_provider` — OIDC provider
-- `google_service_account` — impersonated by Vouch workloads
-- `google_service_account_iam_member` — workload identity binding
-- `google_project_iam_member` — viewer role (default)
-
-### `modules/k8s`
-
-Creates a Kubernetes namespace, service account (annotated for AWS IRSA and GCP Workload Identity), RBAC rules for identity verification, and a ConfigMap with Vouch configuration.
-
-**Resources created:**
-- `kubernetes_namespace`
-- `kubernetes_service_account` — with cloud provider annotations
-- `kubernetes_cluster_role` / `kubernetes_cluster_role_binding` — token review and workload discovery
-- `kubernetes_config_map` — Vouch issuer/audience config
+- **YubiKey** or FIDO2 authenticator
+- **kubectl** (if enabling EKS)
+- **Docker** (if enabling ECR)
+- **Session Manager plugin** (if enabling EC2) — [install guide](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html)
 
 ## Quick Start
 
-```hcl
-module "vouch_demo" {
-  source = "github.com/vouch-sh/demo"
+### 1. Authenticate with Vouch
 
-  vouch_issuer_url = "https://auth.vouch.sh"
-  gcp_project_id   = "my-project"
-}
+```bash
+vouch enroll --server https://us.vouch.sh   # one-time enrollment
+vouch login                                  # daily — starts an 8-hour session
 ```
 
-To deploy only specific providers:
+### 2. Deploy infrastructure
 
-```hcl
-module "vouch_demo" {
-  source = "github.com/vouch-sh/demo"
-
-  vouch_issuer_url = "https://auth.vouch.sh"
-
-  aws_enabled = true
-  gcp_enabled = false
-  k8s_enabled = false
-}
+```bash
+cd examples/complete
+cp terraform.tfvars.example terraform.tfvars
 ```
 
-## Variables
+Edit `terraform.tfvars` to enable the services you want:
 
-| Name | Description | Type | Default | Required |
-|------|-------------|------|---------|----------|
-| `vouch_issuer_url` | OIDC issuer URL for Vouch | `string` | — | yes |
-| `aws_enabled` | Deploy AWS resources | `bool` | `true` | no |
-| `gcp_enabled` | Deploy GCP resources | `bool` | `true` | no |
-| `gcp_project_id` | GCP project ID | `string` | `""` | when `gcp_enabled` |
-| `k8s_enabled` | Deploy Kubernetes resources | `bool` | `true` | no |
+```hcl
+vouch_issuer_url = "https://auth.vouch.sh"
 
-## Outputs
+codecommit_enabled   = true
+codeartifact_enabled = true
+ecr_enabled          = true
+ec2_enabled          = true
+# eks_enabled        = true   # ~$73/mo control plane
+```
 
-| Name | Description |
-|------|-------------|
-| `aws_oidc_provider_arn` | ARN of the AWS IAM OIDC provider |
-| `aws_role_arn` | ARN of the IAM role for Vouch workloads |
-| `gcp_workload_identity_pool_name` | Full name of the GCP Workload Identity Pool |
-| `gcp_workload_identity_provider_name` | Full name of the OIDC provider |
-| `gcp_service_account_email` | Email of the GCP service account |
-| `k8s_namespace` | Kubernetes namespace |
-| `k8s_service_account_name` | Kubernetes service account name |
+Then deploy:
 
-## Provider Requirements
+```bash
+terraform init
+terraform apply
+```
 
-| Provider | Version |
-|----------|---------|
-| `hashicorp/aws` | `~> 6.31` |
-| `hashicorp/google` | `>= 6.0` |
-| `hashicorp/kubernetes` | `>= 2.25` |
-| Terraform | `>= 1.5` |
+### 3. Configure Vouch for AWS
 
-## Security Defaults
+After `terraform apply`, copy and run the setup command from the output:
 
-All modules follow the principle of least privilege:
+```bash
+$(terraform output -raw vouch_setup_aws)
+```
 
-- **AWS**: Role gets `ReadOnlyAccess` only. Override by attaching additional policies outside the module.
-- **GCP**: Service account gets `roles/viewer` only. Grant additional roles as needed.
-- **Kubernetes**: ClusterRole is scoped to token review, service account reads, and pod/namespace discovery.
+Verify it works:
 
-## Ansible
+```bash
+aws sts get-caller-identity --profile vouch
+```
 
-### `ansible/roles/vouch_sshd`
+## Using the Demo
 
-Configures `sshd` on target hosts to trust the Vouch SSH CA, enabling certificate-based authentication. Users with a Vouch-signed SSH certificate can authenticate without individual public keys in `authorized_keys`.
+Terraform outputs ready-to-run commands for each enabled service. Run `terraform output` to see all available commands.
 
-**What it does:**
-- Fetches the Vouch CA public key from `us.vouch.sh/ssh/ca.pub`
-- Installs it to `/etc/ssh/vouch-ca.pub` and adds `TrustedUserCAKeys` via `sshd_config.d` drop-in
-- Configures `RevokedKeys` for certificate revocation
-- Uses `AuthorizedPrincipalsFile` to control which cert principals can log in as which local user
+### Git (CodeCommit)
 
-Re-running the playbook picks up any CA key rotations automatically.
+```bash
+# Setup (once)
+$(terraform output -raw vouch_setup_codecommit)
 
-### Access Control
+# Clone and test
+$(terraform output -raw codecommit_clone_command)
+cd vouch-demo-repo
+echo "hello" > test.txt && git add . && git commit -m "test" && git push
+```
 
-Use `vouch_authorized_principals` to control which certificate principals can log in as which local user. sshd only allows a certificate if its principal appears in the file for the target username:
+### Packages (CodeArtifact)
+
+```bash
+# Setup (once) — configures npm to use CodeArtifact via Vouch
+$(terraform output -raw vouch_setup_codeartifact_npm)
+
+# Install a package to verify
+npm install lodash
+```
+
+### Container Registry (ECR)
+
+```bash
+# Setup (once)
+$(terraform output -raw vouch_setup_docker)
+
+# Push a test image
+docker pull alpine:latest
+docker tag alpine:latest $(terraform output -raw ecr_repository_url):latest
+docker push $(terraform output -raw ecr_repository_url):latest
+```
+
+### EC2 (Session Manager)
+
+No additional setup beyond the AWS profile. Requires the [Session Manager plugin](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html).
+
+```bash
+$(terraform output -raw ssm_connect_command)
+```
+
+The instance has no inbound ports — all access is via SSM.
+
+### Kubernetes (EKS)
+
+```bash
+# Setup (once) — updates kubeconfig
+$(terraform output -raw vouch_setup_eks)
+
+# Verify
+kubectl get nodes
+```
+
+> **Cost warning:** EKS Auto Mode has a ~$73/mo control plane charge. Destroy when not in use.
+
+## SSH Certificate Authentication
+
+Vouch can issue short-lived SSH certificates. The client gets a certificate; the server trusts the Vouch CA.
+
+### Client
+
+```bash
+vouch setup ssh
+ssh user@host
+```
+
+### Server (Ansible)
+
+The `ansible/roles/vouch_sshd` role configures `sshd` on target hosts to trust the Vouch SSH CA.
+
+**1. Set up inventory:**
+
+```bash
+cp ansible/inventory/hosts.example ansible/inventory/hosts
+# Edit ansible/inventory/hosts — add your target hosts
+```
+
+**2. Configure principals** in your playbook or group vars:
 
 ```yaml
 vouch_authorized_principals:
@@ -125,15 +174,17 @@ vouch_authorized_principals:
     - ci
 ```
 
-With this config, only certs containing the `admin` principal can SSH in as `root`, and only `deploy` or `ci` principals can SSH in as `deploy`.
+With this config, only certs with the `admin` principal can SSH as `root`, and only `deploy` or `ci` principals can SSH as `deploy`.
 
-### Usage
+**3. Run the playbook:**
 
 ```bash
 ansible-playbook -i ansible/inventory/hosts ansible/playbooks/sshd-ca.yml
 ```
 
-### Role Variables
+Re-running the playbook picks up any CA key rotations automatically.
+
+#### Role Variables
 
 | Name | Default | Description |
 |------|---------|-------------|
@@ -142,3 +193,75 @@ ansible-playbook -i ansible/inventory/hosts ansible/playbooks/sshd-ca.yml
 | `vouch_authorized_principals` | `{}` | Map of username to list of allowed principals |
 | `vouch_revoked_keys_path` | `/etc/ssh/vouch-revoked-keys` | Path to the revoked keys file |
 | `vouch_sshd_config_path` | `/etc/ssh/sshd_config.d/vouch-ca.conf` | sshd config drop-in path |
+
+## Variables
+
+| Name | Description | Type | Default | Required |
+|------|-------------|------|---------|----------|
+| `vouch_issuer_url` | OIDC issuer URL for Vouch | `string` | — | yes |
+| `name_prefix` | Prefix for resource names | `string` | `"vouch-demo"` | no |
+| `tags` | Tags to apply to all resources | `map(string)` | `{}` | no |
+| `aws_enabled` | Deploy AWS identity resources | `bool` | `true` | no |
+| `k8s_enabled` | Deploy Kubernetes resources | `bool` | `true` | no |
+| `codecommit_enabled` | Create CodeCommit repository | `bool` | `false` | no |
+| `codeartifact_enabled` | Create CodeArtifact domain and repository | `bool` | `false` | no |
+| `ecr_enabled` | Create ECR repository | `bool` | `false` | no |
+| `ec2_enabled` | Create EC2 instance with SSM | `bool` | `false` | no |
+| `eks_enabled` | Create EKS Auto Mode cluster | `bool` | `false` | no |
+
+## Outputs
+
+### Resource outputs
+
+| Name | Description |
+|------|-------------|
+| `aws_oidc_provider_arn` | ARN of the AWS IAM OIDC provider |
+| `aws_role_arn` | ARN of the IAM role for Vouch workloads |
+| `k8s_namespace` | Kubernetes namespace |
+| `k8s_service_account_name` | Kubernetes service account name |
+| `codecommit_clone_url_http` | HTTP clone URL for CodeCommit |
+| `codecommit_clone_url_ssh` | SSH clone URL for CodeCommit |
+| `codeartifact_domain_name` | CodeArtifact domain name |
+| `codeartifact_repository_name` | CodeArtifact repository name |
+| `codeartifact_domain_owner` | AWS account ID owning the domain |
+| `ecr_repository_url` | ECR repository URL |
+| `ec2_instance_id` | EC2 instance ID |
+| `ec2_instance_public_ip` | EC2 instance public IP |
+| `eks_cluster_name` | EKS cluster name |
+| `eks_cluster_endpoint` | EKS cluster endpoint URL |
+| `eks_cluster_certificate_authority` | EKS cluster CA (base64) |
+
+### Command outputs
+
+| Name | Description |
+|------|-------------|
+| `vouch_setup_aws` | Configure Vouch for AWS |
+| `vouch_setup_codecommit` | Configure Vouch for CodeCommit |
+| `vouch_setup_codeartifact_npm` | Configure Vouch for CodeArtifact (npm) |
+| `vouch_setup_docker` | Configure Vouch for ECR |
+| `vouch_setup_eks` | Configure kubectl for EKS |
+| `codecommit_clone_command` | Clone the CodeCommit repository |
+| `ssm_connect_command` | Start an SSM session on the EC2 instance |
+
+## Cost Estimates
+
+| Resource | Cost |
+|----------|------|
+| VPC (no NAT) | $0 |
+| CodeCommit | $0 |
+| CodeArtifact | ~$0 |
+| ECR | $0 |
+| EC2 t2.nano | ~$4 |
+| EKS control plane | ~$73 |
+| EKS Auto Mode compute | pay-per-use |
+| **Total (all on)** | **~$77/mo + EKS compute** |
+| **Total (no EKS)** | **~$4/mo** |
+
+All demo service modules default to disabled.
+
+## Cleanup
+
+```bash
+cd examples/complete
+terraform destroy
+```
