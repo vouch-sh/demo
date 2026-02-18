@@ -1,12 +1,13 @@
 # Vouch Demo
 
-Terraform modules and an Ansible role for provisioning AWS demo resources to test [Vouch](https://github.com/vouch-sh) credential helpers. Deploy infrastructure, configure Vouch, and verify access to AWS services using OIDC-based workload identity.
+This tutorial walks you through using [Vouch](https://github.com/vouch-sh) to authenticate to AWS services with OIDC-based workload identity. You'll deploy demo infrastructure with Terraform, then use Vouch credentials to push code, install packages, push container images, connect to servers, and access Kubernetes clusters — all without long-lived AWS credentials.
 
-## Prerequisites
+## What You'll Need
 
-- **Terraform** >= 1.5
-- **AWS account** with admin access (for provisioning resources)
-- **Vouch CLI** installed:
+- **Terraform** >= 1.10
+- **AWS account** with admin access
+- **YubiKey** or FIDO2 authenticator
+- **Vouch CLI** — install for your platform:
 
   **macOS:**
   ```bash
@@ -27,49 +28,67 @@ Terraform modules and an Ansible role for provisioning AWS demo resources to tes
   sudo dnf install vouch
   ```
 
-- **YubiKey** or FIDO2 authenticator
-- **kubectl** (if enabling EKS)
-- **Docker** (if enabling ECR)
-- **Session Manager plugin** (if enabling EC2) — [install guide](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html)
+Depending on which services you enable, you may also need:
 
-## Quick Start
+- **kubectl** — for EKS
+- **Docker** — for ECR
+- **Session Manager plugin** — for EC2 ([install guide](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html))
 
-### 1. Authenticate with Vouch
+## Step 1: Enroll with Vouch
+
+If this is your first time using Vouch, enroll your authenticator:
 
 ```bash
-vouch enroll --server https://us.vouch.sh   # one-time enrollment
-vouch login                                  # daily — starts an 8-hour session
+vouch enroll --server https://us.vouch.sh
 ```
 
-### 2. Deploy infrastructure
+Then start a session:
 
 ```bash
-cd examples/complete
+vouch login
+```
+
+Sessions last 8 hours. Run `vouch login` again when your session expires.
+
+## Step 2: Deploy the Infrastructure
+
+Clone this repository and navigate to the example configuration:
+
+```bash
+git clone https://github.com/vouch-sh/vouch-demo.git
+cd vouch-demo/examples/complete
+```
+
+Copy the example variables file and edit it to enable the services you want:
+
+```bash
 cp terraform.tfvars.example terraform.tfvars
 ```
 
-Edit `terraform.tfvars` to enable the services you want:
+Open `terraform.tfvars` and uncomment the services you'd like to try:
 
 ```hcl
-vouch_issuer_url = "https://auth.vouch.sh"
+vouch_issuer_url = "https://us.vouch.sh"
 
 codecommit_enabled   = true
 codeartifact_enabled = true
 ecr_enabled          = true
 ec2_enabled          = true
-# eks_enabled        = true   # ~$73/mo control plane
+# eks_enabled        = true   # ~$73/mo control plane — uncomment if needed
 ```
 
-Then deploy:
+Deploy:
 
 ```bash
 terraform init
 terraform apply
 ```
 
-### 3. Configure Vouch for AWS
+**Cost:** With all services enabled except EKS, this costs ~$4/mo (a single t2.nano). Adding EKS brings it to ~$77/mo due to the control plane charge. All demo service modules default to disabled, so you only pay for what you turn on.
 
-After `terraform apply`, copy and run the setup command from the output:
+## Step 3: Configure AWS Access
+
+After `terraform apply` completes, run the setup command it outputs. This tells Vouch which IAM role to assume:
 
 ```bash
 $(terraform output -raw vouch_setup_aws)
@@ -81,100 +100,158 @@ Verify it works:
 aws sts get-caller-identity --profile vouch
 ```
 
-## Using the Demo
+You should see the Vouch IAM role ARN in the output. Behind the scenes, this created an IAM OIDC provider that trusts your Vouch issuer and an IAM role with a trust policy scoped to your Vouch identity.
 
-Terraform outputs ready-to-run commands for each enabled service. Run `terraform output` to see all available commands.
+## Step 4: Push Code with Git (CodeCommit)
 
-### Git (CodeCommit)
+*Requires `codecommit_enabled = true`.*
+
+Configure Vouch as a Git credential helper:
 
 ```bash
-# Setup (once)
 $(terraform output -raw vouch_setup_codecommit)
-
-# Clone and test
-$(terraform output -raw codecommit_clone_command)
-cd vouch-demo-repo
-echo "hello" > test.txt && git add . && git commit -m "test" && git push
 ```
 
-### Packages (CodeArtifact)
+Clone the demo repository:
 
 ```bash
-# Setup (once) — configures npm to use CodeArtifact via Vouch
-$(terraform output -raw vouch_setup_codeartifact_npm)
+$(terraform output -raw codecommit_clone_command)
+```
 
-# Install a package to verify
+Push a test commit:
+
+```bash
+cd vouch-demo-repo
+echo "hello from vouch" > test.txt
+git add .
+git commit -m "test push"
+git push
+```
+
+## Step 5: Install Packages (CodeArtifact)
+
+*Requires `codeartifact_enabled = true`.*
+
+Configure npm to use CodeArtifact through Vouch:
+
+```bash
+$(terraform output -raw vouch_setup_codeartifact_npm)
+```
+
+Install a package to verify:
+
+```bash
 npm install lodash
 ```
 
-### Container Registry (ECR)
+npm fetches the package from your CodeArtifact repository, authenticating with Vouch credentials.
+
+## Step 6: Push a Container Image (ECR)
+
+*Requires `ecr_enabled = true` and Docker running.*
+
+Configure Docker to authenticate to ECR through Vouch:
 
 ```bash
-# Setup (once)
 $(terraform output -raw vouch_setup_docker)
+```
 
-# Push a test image
+Pull, tag, and push a test image:
+
+```bash
 docker pull alpine:latest
 docker tag alpine:latest $(terraform output -raw ecr_repository_url):latest
 docker push $(terraform output -raw ecr_repository_url):latest
 ```
 
-### EC2 (Session Manager)
+## Step 7: Connect to a Server (EC2 + Session Manager)
 
-No additional setup beyond the AWS profile. Requires the [Session Manager plugin](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html).
+*Requires `ec2_enabled = true` and the [Session Manager plugin](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html).*
+
+Start an SSM session:
 
 ```bash
 $(terraform output -raw ssm_connect_command)
 ```
 
-The instance has no inbound ports — all access is via SSM.
+The instance has zero inbound security group rules — all access is through SSM using your Vouch AWS profile.
 
-### Kubernetes (EKS)
+## Step 8: Access Kubernetes (EKS)
 
-```bash
-# Setup (once) — updates kubeconfig
-$(terraform output -raw vouch_setup_eks)
-
-# Verify
-kubectl get nodes
-```
+*Requires `eks_enabled = true` and kubectl installed.*
 
 > **Cost warning:** EKS Auto Mode has a ~$73/mo control plane charge. Destroy when not in use.
 
-## SSH Certificate Authentication
+Update your kubeconfig:
 
-Vouch can issue short-lived SSH certificates. The client gets a certificate; the server trusts the Vouch CA.
+```bash
+$(terraform output -raw vouch_setup_eks)
+```
 
-### Client
+Verify access:
+
+```bash
+kubectl get nodes
+```
+
+The Terraform module creates an EKS Access Entry that maps your Vouch IAM role to cluster admin, so kubectl works immediately.
+
+## Step 9: SSH with Certificates
+
+Vouch can issue short-lived SSH certificates. The client gets a certificate signed by the Vouch CA; the server is configured to trust that CA.
+
+### Client Setup
+
+Configure your SSH client to use Vouch certificates:
 
 ```bash
 vouch setup ssh
+```
+
+Then SSH as usual:
+
+```bash
 ssh user@host
 ```
 
-### Server (Ansible)
+Vouch intercepts the connection, obtains a short-lived certificate, and presents it to the server.
 
-The `ansible/roles/vouch_sshd` role configures `sshd` on target hosts to trust the Vouch SSH CA.
+### Server Setup (Ansible)
+
+The included Ansible role configures `sshd` on target hosts to trust the Vouch SSH CA.
 
 **1. Set up inventory:**
 
 ```bash
 cp ansible/inventory/hosts.example ansible/inventory/hosts
-# Edit ansible/inventory/hosts — add your target hosts
 ```
 
-**2. Configure principals** in your playbook or group vars:
+Edit `ansible/inventory/hosts` and add your target hosts:
+
+```ini
+[servers]
+host1.example.com
+host2.example.com
+```
+
+**2. Configure authorized principals.** Edit the playbook at `ansible/playbooks/sshd-ca.yml` to control which certificate principals can log in as which local users:
 
 ```yaml
-vouch_authorized_principals:
-  root:
-    - admin
-  deploy:
-    - deploy
-    - ci
+- name: Configure sshd to trust Vouch SSH CA
+  hosts: all
+  become: true
+  roles:
+    - role: vouch_sshd
+      vars:
+        vouch_authorized_principals:
+          root:
+            - admin
+          deploy:
+            - deploy
+            - ci
 ```
 
-With this config, only certs with the `admin` principal can SSH as `root`, and only `deploy` or `ci` principals can SSH as `deploy`.
+With this configuration, only certificates carrying the `admin` principal can SSH as `root`, and only `deploy` or `ci` principals can SSH as `deploy`.
 
 **3. Run the playbook:**
 
@@ -182,84 +259,11 @@ With this config, only certs with the `admin` principal can SSH as `root`, and o
 ansible-playbook -i ansible/inventory/hosts ansible/playbooks/sshd-ca.yml
 ```
 
-Re-running the playbook picks up any CA key rotations automatically.
-
-#### Role Variables
-
-| Name | Default | Description |
-|------|---------|-------------|
-| `vouch_instance_url` | `https://us.vouch.sh` | Base URL of the Vouch instance |
-| `vouch_ca_key_path` | `/etc/ssh/vouch-ca.pub` | Where to write the CA key on the host |
-| `vouch_authorized_principals` | `{}` | Map of username to list of allowed principals |
-| `vouch_revoked_keys_path` | `/etc/ssh/vouch-revoked-keys` | Path to the revoked keys file |
-| `vouch_sshd_config_path` | `/etc/ssh/sshd_config.d/vouch-ca.conf` | sshd config drop-in path |
-
-## Variables
-
-| Name | Description | Type | Default | Required |
-|------|-------------|------|---------|----------|
-| `vouch_issuer_url` | OIDC issuer URL for Vouch | `string` | — | yes |
-| `name_prefix` | Prefix for resource names | `string` | `"vouch-demo"` | no |
-| `tags` | Tags to apply to all resources | `map(string)` | `{}` | no |
-| `aws_enabled` | Deploy AWS identity resources | `bool` | `true` | no |
-| `k8s_enabled` | Deploy Kubernetes resources | `bool` | `true` | no |
-| `codecommit_enabled` | Create CodeCommit repository | `bool` | `false` | no |
-| `codeartifact_enabled` | Create CodeArtifact domain and repository | `bool` | `false` | no |
-| `ecr_enabled` | Create ECR repository | `bool` | `false` | no |
-| `ec2_enabled` | Create EC2 instance with SSM | `bool` | `false` | no |
-| `eks_enabled` | Create EKS Auto Mode cluster | `bool` | `false` | no |
-
-## Outputs
-
-### Resource outputs
-
-| Name | Description |
-|------|-------------|
-| `aws_oidc_provider_arn` | ARN of the AWS IAM OIDC provider |
-| `aws_role_arn` | ARN of the IAM role for Vouch workloads |
-| `k8s_namespace` | Kubernetes namespace |
-| `k8s_service_account_name` | Kubernetes service account name |
-| `codecommit_clone_url_http` | HTTP clone URL for CodeCommit |
-| `codecommit_clone_url_ssh` | SSH clone URL for CodeCommit |
-| `codeartifact_domain_name` | CodeArtifact domain name |
-| `codeartifact_repository_name` | CodeArtifact repository name |
-| `codeartifact_domain_owner` | AWS account ID owning the domain |
-| `ecr_repository_url` | ECR repository URL |
-| `ec2_instance_id` | EC2 instance ID |
-| `ec2_instance_public_ip` | EC2 instance public IP |
-| `eks_cluster_name` | EKS cluster name |
-| `eks_cluster_endpoint` | EKS cluster endpoint URL |
-| `eks_cluster_certificate_authority` | EKS cluster CA (base64) |
-
-### Command outputs
-
-| Name | Description |
-|------|-------------|
-| `vouch_setup_aws` | Configure Vouch for AWS |
-| `vouch_setup_codecommit` | Configure Vouch for CodeCommit |
-| `vouch_setup_codeartifact_npm` | Configure Vouch for CodeArtifact (npm) |
-| `vouch_setup_docker` | Configure Vouch for ECR |
-| `vouch_setup_eks` | Configure kubectl for EKS |
-| `codecommit_clone_command` | Clone the CodeCommit repository |
-| `ssm_connect_command` | Start an SSM session on the EC2 instance |
-
-## Cost Estimates
-
-| Resource | Cost |
-|----------|------|
-| VPC (no NAT) | $0 |
-| CodeCommit | $0 |
-| CodeArtifact | ~$0 |
-| ECR | $0 |
-| EC2 t2.nano | ~$4 |
-| EKS control plane | ~$73 |
-| EKS Auto Mode compute | pay-per-use |
-| **Total (all on)** | **~$77/mo + EKS compute** |
-| **Total (no EKS)** | **~$4/mo** |
-
-All demo service modules default to disabled.
+The role fetches the Vouch CA public key, installs it on the host, creates an `sshd` config drop-in to trust it, and writes per-user authorized principals files. Re-running the playbook picks up any CA key rotations automatically.
 
 ## Cleanup
+
+Destroy all provisioned infrastructure:
 
 ```bash
 cd examples/complete

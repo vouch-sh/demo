@@ -1,4 +1,4 @@
-resource "kubernetes_namespace" "vouch" {
+resource "kubernetes_namespace_v1" "vouch" {
   metadata {
     name = var.namespace
 
@@ -11,10 +11,10 @@ resource "kubernetes_namespace" "vouch" {
 
 # Service account for workloads that authenticate via Vouch.
 # Annotated with the AWS IAM role ARN for IRSA (IAM Roles for Service Accounts).
-resource "kubernetes_service_account" "vouch" {
+resource "kubernetes_service_account_v1" "vouch" {
   metadata {
     name      = "vouch"
-    namespace = kubernetes_namespace.vouch.metadata[0].name
+    namespace = kubernetes_namespace_v1.vouch.metadata[0].name
 
     annotations = var.aws_role_arn != "" ? {
       "eks.amazonaws.com/role-arn" = var.aws_role_arn
@@ -29,7 +29,7 @@ resource "kubernetes_service_account" "vouch" {
 
 # ClusterRole granting Vouch the permissions it needs to verify and
 # manage workload identities across the cluster.
-resource "kubernetes_cluster_role" "vouch" {
+resource "kubernetes_cluster_role_v1" "vouch" {
   metadata {
     name = "vouch"
 
@@ -68,7 +68,7 @@ resource "kubernetes_cluster_role" "vouch" {
   }
 }
 
-resource "kubernetes_cluster_role_binding" "vouch" {
+resource "kubernetes_cluster_role_binding_v1" "vouch" {
   metadata {
     name = "vouch"
 
@@ -81,21 +81,21 @@ resource "kubernetes_cluster_role_binding" "vouch" {
   role_ref {
     api_group = "rbac.authorization.k8s.io"
     kind      = "ClusterRole"
-    name      = kubernetes_cluster_role.vouch.metadata[0].name
+    name      = kubernetes_cluster_role_v1.vouch.metadata[0].name
   }
 
   subject {
     kind      = "ServiceAccount"
-    name      = kubernetes_service_account.vouch.metadata[0].name
-    namespace = kubernetes_namespace.vouch.metadata[0].name
+    name      = kubernetes_service_account_v1.vouch.metadata[0].name
+    namespace = kubernetes_namespace_v1.vouch.metadata[0].name
   }
 }
 
 # ConfigMap with Vouch configuration that workloads can mount.
-resource "kubernetes_config_map" "vouch" {
+resource "kubernetes_config_map_v1" "vouch" {
   metadata {
     name      = "vouch-config"
-    namespace = kubernetes_namespace.vouch.metadata[0].name
+    namespace = kubernetes_namespace_v1.vouch.metadata[0].name
 
     labels = {
       "app.kubernetes.io/name"       = "vouch"
