@@ -1,4 +1,4 @@
-vouch_issuer_url = "https://auth.vouch.sh"
+vouch_issuer_url = "https://us.vouch.sh"
 
 # Enable demo services as needed:
 # codecommit_enabled   = true

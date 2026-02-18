@@ -1,5 +1,5 @@
 variable "vouch_issuer_url" {
-  description = "The OIDC issuer URL for the Vouch identity provider (e.g. https://auth.vouch.sh)"
+  description = "The OIDC issuer URL for the Vouch identity provider (e.g. https://us.vouch.sh)"
   type        = string
 
   validation {
