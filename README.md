@@ -138,6 +138,12 @@ Configure npm to use CodeArtifact through Vouch:
 $(terraform output -raw vouch_setup_codeartifact_npm)
 ```
 
+Verify npm is pointing at your CodeArtifact repository:
+
+```bash
+npm config get registry
+```
+
 Install a package to verify:
 
 ```bash

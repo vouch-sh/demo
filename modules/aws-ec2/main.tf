@@ -1,18 +1,3 @@
-data "aws_ami" "al2023" {
-  most_recent = true
-  owners      = ["amazon"]
-
-  filter {
-    name   = "name"
-    values = ["al2023-ami-2023.*-x86_64"]
-  }
-
-  filter {
-    name   = "virtualization-type"
-    values = ["hvm"]
-  }
-}
-
 resource "aws_iam_role" "ssm" {
   name = "${var.name_prefix}-ec2-ssm"
 
@@ -74,7 +59,7 @@ resource "aws_security_group" "this" {
 
 resource "aws_instance" "this" {
   ami                    = data.aws_ami.al2023.id
-  instance_type          = "t2.nano"
+  instance_type          = "t2.micro"
   subnet_id              = var.subnet_id
   iam_instance_profile   = aws_iam_instance_profile.this.name
   vpc_security_group_ids = [aws_security_group.this.id]
@@ -86,25 +71,8 @@ resource "aws_instance" "this" {
     http_tokens   = "required" # IMDSv2
   }
 
-  user_data = <<-EOF
-    #!/bin/bash
-    set -euo pipefail
-
-    # Fetch Vouch SSH CA public key
-    curl -fsSL "${var.vouch_issuer_url}/ssh/ca.pub" -o /etc/ssh/vouch-ca.pub
-
-    # Create empty revoked keys file
-    touch /etc/ssh/vouch-revoked-keys
-
-    # Configure sshd to trust Vouch CA
-    cat > /etc/ssh/sshd_config.d/vouch-ca.conf <<'SSHD'
-    TrustedUserCAKeys /etc/ssh/vouch-ca.pub
-    RevokedKeys /etc/ssh/vouch-revoked-keys
-    SSHD
-
-    # Restart sshd to pick up new config
-    systemctl restart sshd
-  EOF
+  user_data_base64            = data.cloudinit_config.this.rendered
+  user_data_replace_on_change = true
 
   tags = merge(var.tags, {
     Name = "${var.name_prefix}-ec2"
