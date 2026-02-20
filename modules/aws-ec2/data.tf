@@ -20,7 +20,8 @@ data "cloudinit_config" "this" {
   part {
     content_type = "text/cloud-config"
     content = templatefile("${path.module}/cloud-config.yml.tpl", {
-      vouch_issuer_url = var.vouch_issuer_url
+      vouch_issuer_url          = var.vouch_issuer_url
+      ssh_authorized_principals = var.ssh_authorized_principals
     })
   }
 }

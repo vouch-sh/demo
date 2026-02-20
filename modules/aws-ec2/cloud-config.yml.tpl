@@ -13,7 +13,10 @@ write_files:
   - path: /etc/ssh/auth_principals/ec2-user
     owner: root:root
     permissions: "0644"
-    content: "*"
+    content: |
+%{ for p in ssh_authorized_principals ~}
+      ${p}
+%{ endfor }
   - path: /etc/ssh/vouch-revoked-keys
     owner: root:root
     permissions: "0644"

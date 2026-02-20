@@ -115,5 +115,5 @@ output "ssm_connect_command" {
 
 output "ssh_connect_command" {
   description = "Run this command to SSH into the EC2 instance with Vouch certificates"
-  value       = var.ec2_enabled ? "ssh -i ~/.ssh/id_ed25519_vouch ec2-user@${module.aws_ec2[0].instance_public_ip}" : null
+  value       = var.ec2_enabled ? "ssh -t -i ~/.ssh/id_ed25519_vouch ec2-user@${module.aws_ec2[0].instance_public_ip}" : null
 }

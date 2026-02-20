@@ -19,6 +19,11 @@ variable "vouch_issuer_url" {
   type        = string
 }
 
+variable "ssh_authorized_principals" {
+  description = "List of SSH certificate principals allowed to log in as ec2-user"
+  type        = list(string)
+}
+
 variable "tags" {
   description = "Tags to apply to all resources"
   type        = map(string)
