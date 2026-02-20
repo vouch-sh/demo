@@ -106,7 +106,7 @@ resource "kubernetes_config_map_v1" "vouch" {
   data = {
     "vouch.yaml" = yamlencode({
       issuer    = var.vouch_issuer_url
-      audiences = var.vouch_audiences
+      audiences = [var.vouch_issuer_url]
     })
   }
 }

@@ -8,12 +8,6 @@ variable "vouch_issuer_url" {
   }
 }
 
-variable "vouch_audiences" {
-  description = "Allowed audience values in Vouch-issued OIDC tokens"
-  type        = list(string)
-  default     = ["sts.amazonaws.com"]
-}
-
 variable "role_name" {
   description = "Name of the IAM role for Vouch-authenticated workloads"
   type        = string

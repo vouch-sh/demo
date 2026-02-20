@@ -14,6 +14,11 @@ variable "vpc_id" {
   type        = string
 }
 
+variable "vouch_issuer_url" {
+  description = "The OIDC issuer URL for Vouch (used to fetch SSH CA public key)"
+  type        = string
+}
+
 variable "tags" {
   description = "Tags to apply to all resources"
   type        = map(string)

@@ -26,12 +26,6 @@ variable "aws_enabled" {
   default     = true
 }
 
-variable "k8s_enabled" {
-  description = "Whether to deploy Kubernetes Vouch integration resources"
-  type        = bool
-  default     = true
-}
-
 variable "codecommit_enabled" {
   description = "Whether to create a CodeCommit repository for demo"
   type        = bool

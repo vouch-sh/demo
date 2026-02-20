@@ -1,3 +1,10 @@
+# Resolve the current caller's IAM role ARN (handles SSO/assumed-role sessions)
+data "aws_caller_identity" "current" {}
+
+data "aws_iam_session_context" "current" {
+  arn = data.aws_caller_identity.current.arn
+}
+
 # IAM role for the EKS cluster control plane
 resource "aws_iam_role" "cluster" {
   name = "${var.name_prefix}-eks-cluster"
@@ -118,9 +125,41 @@ resource "aws_eks_cluster" "this" {
   ]
 }
 
+# Grant the Terraform executor cluster admin access
+resource "aws_eks_access_entry" "terraform" {
+  cluster_name  = aws_eks_cluster.this.name
+  principal_arn = data.aws_iam_session_context.current.issuer_arn
+  type          = "STANDARD"
+
+  tags = var.tags
+}
+
+resource "aws_eks_access_policy_association" "terraform" {
+  cluster_name  = aws_eks_cluster.this.name
+  principal_arn = data.aws_iam_session_context.current.issuer_arn
+  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+
+  access_scope {
+    type = "cluster"
+  }
+
+  depends_on = [aws_eks_access_entry.terraform]
+}
+
+# EKS access entries have eventual consistency — the Kubernetes API server
+# may not recognize the new entry for several seconds after creation.
+resource "time_sleep" "wait_for_access_entries" {
+  depends_on = [
+    aws_eks_access_policy_association.terraform,
+    aws_eks_access_policy_association.vouch,
+  ]
+
+  create_duration = "15s"
+}
+
 # Grant the Vouch IAM role cluster admin access via EKS Access Entries
 resource "aws_eks_access_entry" "vouch" {
-  count = var.vouch_role_arn != "" ? 1 : 0
+  count = var.create_access_entry ? 1 : 0
 
   cluster_name  = aws_eks_cluster.this.name
   principal_arn = var.vouch_role_arn
@@ -130,7 +169,7 @@ resource "aws_eks_access_entry" "vouch" {
 }
 
 resource "aws_eks_access_policy_association" "vouch" {
-  count = var.vouch_role_arn != "" ? 1 : 0
+  count = var.create_access_entry ? 1 : 0
 
   cluster_name  = aws_eks_cluster.this.name
   principal_arn = var.vouch_role_arn

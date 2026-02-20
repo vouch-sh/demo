@@ -7,7 +7,7 @@ data "tls_certificate" "vouch" {
 # sts:AssumeRoleWithWebIdentity to obtain temporary AWS credentials.
 resource "aws_iam_openid_connect_provider" "vouch" {
   url             = var.vouch_issuer_url
-  client_id_list  = var.vouch_audiences
+  client_id_list  = [var.vouch_issuer_url]
   thumbprint_list = [data.tls_certificate.vouch.certificates[0].sha1_fingerprint]
 
   tags = var.tags
@@ -35,7 +35,7 @@ data "aws_iam_policy_document" "trust" {
     condition {
       test     = "StringEquals"
       variable = "${replace(var.vouch_issuer_url, "https://", "")}:aud"
-      values   = var.vouch_audiences
+      values   = [var.vouch_issuer_url]
     }
   }
 }

@@ -3,12 +3,6 @@ variable "vouch_issuer_url" {
   type        = string
 }
 
-variable "vouch_audiences" {
-  description = "List of allowed audience values in Vouch-issued OIDC tokens"
-  type        = list(string)
-  default     = ["vouch"]
-}
-
 variable "namespace" {
   description = "Kubernetes namespace for Vouch resources"
   type        = string

@@ -4,7 +4,7 @@ data "aws_ami" "al2023" {
 
   filter {
     name   = "name"
-    values = ["al2023-ami-*-x86_64"]
+    values = ["al2023-ami-2023.*-x86_64"]
   }
 
   filter {
@@ -44,8 +44,16 @@ resource "aws_iam_instance_profile" "this" {
 
 resource "aws_security_group" "this" {
   name_prefix = "${var.name_prefix}-ec2-"
-  description = "Security group for Vouch demo EC2 instance - no inbound access"
+  description = "Security group for Vouch demo EC2 instance - SSH and SSM access"
   vpc_id      = var.vpc_id
+
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow SSH access"
+  }
 
   egress {
     from_port   = 0
@@ -77,6 +85,26 @@ resource "aws_instance" "this" {
     http_endpoint = "enabled"
     http_tokens   = "required" # IMDSv2
   }
+
+  user_data = <<-EOF
+    #!/bin/bash
+    set -euo pipefail
+
+    # Fetch Vouch SSH CA public key
+    curl -fsSL "${var.vouch_issuer_url}/ssh/ca.pub" -o /etc/ssh/vouch-ca.pub
+
+    # Create empty revoked keys file
+    touch /etc/ssh/vouch-revoked-keys
+
+    # Configure sshd to trust Vouch CA
+    cat > /etc/ssh/sshd_config.d/vouch-ca.conf <<'SSHD'
+    TrustedUserCAKeys /etc/ssh/vouch-ca.pub
+    RevokedKeys /etc/ssh/vouch-revoked-keys
+    SSHD
+
+    # Restart sshd to pick up new config
+    systemctl restart sshd
+  EOF
 
   tags = merge(var.tags, {
     Name = "${var.name_prefix}-ec2"

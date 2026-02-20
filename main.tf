@@ -10,14 +10,6 @@ module "aws" {
   tags = var.tags
 }
 
-module "k8s" {
-  count  = var.k8s_enabled ? 1 : 0
-  source = "./modules/k8s"
-
-  vouch_issuer_url = var.vouch_issuer_url
-  aws_role_arn     = var.aws_enabled ? module.aws[0].role_arn : ""
-}
-
 module "aws_vpc" {
   count  = local.vpc_needed ? 1 : 0
   source = "./modules/aws-vpc"
@@ -54,18 +46,20 @@ module "aws_ec2" {
   count  = var.ec2_enabled ? 1 : 0
   source = "./modules/aws-ec2"
 
-  name_prefix       = var.name_prefix
-  subnet_id         = module.aws_vpc[0].public_subnet_ids[0]
-  vpc_id            = module.aws_vpc[0].vpc_id
-  tags              = var.tags
+  name_prefix      = var.name_prefix
+  subnet_id        = module.aws_vpc[0].public_subnet_ids[0]
+  vpc_id           = module.aws_vpc[0].vpc_id
+  vouch_issuer_url = var.vouch_issuer_url
+  tags             = var.tags
 }
 
 module "aws_eks" {
   count  = var.eks_enabled ? 1 : 0
   source = "./modules/aws-eks"
 
-  name_prefix       = var.name_prefix
-  subnet_ids        = module.aws_vpc[0].public_subnet_ids
-  vouch_role_arn    = var.aws_enabled ? module.aws[0].role_arn : ""
-  tags              = var.tags
+  name_prefix         = var.name_prefix
+  subnet_ids          = module.aws_vpc[0].public_subnet_ids
+  vouch_role_arn      = var.aws_enabled ? module.aws[0].role_arn : ""
+  create_access_entry = var.aws_enabled
+  tags                = var.tags
 }

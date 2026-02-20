@@ -9,17 +9,6 @@ output "aws_role_arn" {
   value       = var.aws_enabled ? module.aws[0].role_arn : null
 }
 
-# Kubernetes outputs
-output "k8s_namespace" {
-  description = "Kubernetes namespace where Vouch resources are deployed"
-  value       = var.k8s_enabled ? module.k8s[0].namespace : null
-}
-
-output "k8s_service_account_name" {
-  description = "Name of the Kubernetes service account for Vouch"
-  value       = var.k8s_enabled ? module.k8s[0].service_account_name : null
-}
-
 # CodeCommit outputs
 output "codecommit_clone_url_http" {
   description = "HTTP clone URL for the CodeCommit repository"
@@ -99,7 +88,7 @@ output "vouch_setup_codeartifact_npm" {
     "--repository ${module.aws_codeartifact[0].repository_name}",
     "--domain ${module.aws_codeartifact[0].domain_name}",
     "--domain-owner ${module.aws_codeartifact[0].domain_owner}",
-    "--profile vouch",
+    "--region ${data.aws_region.current.region}",
   ]) : null
 }
 
@@ -121,5 +110,10 @@ output "codecommit_clone_command" {
 
 output "ssm_connect_command" {
   description = "Run this command to start an SSM session on the EC2 instance"
-  value       = var.ec2_enabled ? "aws ssm start-session --target ${module.aws_ec2[0].instance_id} --profile vouch" : null
+  value       = var.ec2_enabled ? "aws ssm start-session --target ${module.aws_ec2[0].instance_id} --region ${data.aws_region.current.region} --profile vouch" : null
+}
+
+output "ssh_connect_command" {
+  description = "Run this command to SSH into the EC2 instance with Vouch certificates"
+  value       = var.ec2_enabled ? "ssh ec2-user@${module.aws_ec2[0].instance_public_ip}" : null
 }

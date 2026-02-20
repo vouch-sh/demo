@@ -6,10 +6,6 @@ provider "aws" {
   region = "us-east-1"
 }
 
-provider "kubernetes" {
-  # Configure via KUBECONFIG env var or explicit config_path
-}
-
 module "vouch_demo" {
   source = "../../"
 
@@ -71,15 +67,6 @@ output "aws_role_arn" {
   value = module.vouch_demo.aws_role_arn
 }
 
-# Kubernetes outputs
-output "k8s_namespace" {
-  value = module.vouch_demo.k8s_namespace
-}
-
-output "k8s_service_account_name" {
-  value = module.vouch_demo.k8s_service_account_name
-}
-
 # CodeCommit outputs
 output "codecommit_clone_url_http" {
   value = module.vouch_demo.codecommit_clone_url_http
@@ -107,6 +94,10 @@ output "ecr_repository_url" {
 # EC2 outputs
 output "ec2_instance_id" {
   value = module.vouch_demo.ec2_instance_id
+}
+
+output "ec2_instance_public_ip" {
+  value = module.vouch_demo.ec2_instance_public_ip
 }
 
 # EKS outputs
@@ -146,4 +137,8 @@ output "codecommit_clone_command" {
 
 output "ssm_connect_command" {
   value = module.vouch_demo.ssm_connect_command
+}
+
+output "ssh_connect_command" {
+  value = module.vouch_demo.ssh_connect_command
 }

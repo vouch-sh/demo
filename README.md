@@ -191,14 +191,19 @@ $(terraform output -raw vouch_setup_eks)
 Verify access:
 
 ```bash
-kubectl get nodes
+kubectl cluster-info
+kubectl auth whoami
 ```
+
+EKS Auto Mode provisions nodes on-demand, so `kubectl get nodes` will be empty until you schedule a workload.
 
 The Terraform module creates an EKS Access Entry that maps your Vouch IAM role to cluster admin, so kubectl works immediately.
 
 ## Step 9: SSH with Certificates
 
 Vouch can issue short-lived SSH certificates. The client gets a certificate signed by the Vouch CA; the server is configured to trust that CA.
+
+*Requires `ec2_enabled = true`.*
 
 ### Client Setup
 
@@ -208,17 +213,25 @@ Configure your SSH client to use Vouch certificates:
 vouch setup ssh
 ```
 
-Then SSH as usual:
+### SSH into the Demo Instance
+
+The demo EC2 instance is pre-configured via user-data to trust the Vouch SSH CA, so it's ready for certificate-based SSH immediately after deploy:
 
 ```bash
-ssh user@host
+$(terraform output -raw ssh_connect_command)
 ```
 
-Vouch intercepts the connection, obtains a short-lived certificate, and presents it to the server.
+Any valid Vouch certificate can log in as `ec2-user`. No additional server configuration is needed.
 
-### Server Setup (Ansible)
+You can still use SSM if you prefer:
 
-The included Ansible role configures `sshd` on target hosts to trust the Vouch SSH CA.
+```bash
+$(terraform output -raw ssm_connect_command)
+```
+
+### Configuring Other Hosts (Ansible)
+
+For hosts outside this demo, the included Ansible role configures `sshd` to trust the Vouch SSH CA with principal-based access control.
 
 **1. Set up inventory:**
 
