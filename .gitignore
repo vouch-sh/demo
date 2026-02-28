@@ -43,3 +43,4 @@ terraform.rc
 node_modules/
 package.json
 package-lock.json
+/examples/complete/vouch-demo

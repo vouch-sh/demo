@@ -121,7 +121,7 @@ $(terraform output -raw codecommit_clone_command)
 Push a test commit:
 
 ```bash
-cd vouch-demo-repo
+cd vouch-demo
 echo "hello from vouch" > test.txt
 git add .
 git commit -m "test push"
