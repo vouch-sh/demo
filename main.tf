@@ -46,9 +46,9 @@ module "aws_ec2" {
   count  = var.ec2_enabled ? 1 : 0
   source = "./modules/aws-ec2"
 
-  name_prefix      = var.name_prefix
-  subnet_id        = module.aws_vpc[0].public_subnet_ids[0]
-  vpc_id           = module.aws_vpc[0].vpc_id
+  name_prefix               = var.name_prefix
+  subnet_id                 = module.aws_vpc[0].public_subnet_ids[0]
+  vpc_id                    = module.aws_vpc[0].vpc_id
   vouch_issuer_url          = var.vouch_issuer_url
   ssh_authorized_principals = local.ssh_authorized_principals
   tags                      = var.tags

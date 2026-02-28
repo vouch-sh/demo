@@ -1,10 +1,3 @@
-# Resolve the current caller's IAM role ARN (handles SSO/assumed-role sessions)
-data "aws_caller_identity" "current" {}
-
-data "aws_iam_session_context" "current" {
-  arn = data.aws_caller_identity.current.arn
-}
-
 # IAM role for the EKS cluster control plane
 resource "aws_iam_role" "cluster" {
   name = "${var.name_prefix}-eks-cluster"
@@ -14,7 +7,7 @@ resource "aws_iam_role" "cluster" {
     Statement = [{
       Effect = "Allow"
       Principal = {
-        Service = "eks.amazonaws.com"
+        Service = "eks.${local.aws_dns_suffix}"
       }
       Action = [
         "sts:AssumeRole",
@@ -28,27 +21,27 @@ resource "aws_iam_role" "cluster" {
 
 resource "aws_iam_role_policy_attachment" "cluster_policy" {
   role       = aws_iam_role.cluster.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy"
+  policy_arn = "arn:${local.aws_partition}:iam::aws:policy/AmazonEKSClusterPolicy"
 }
 
 resource "aws_iam_role_policy_attachment" "cluster_compute" {
   role       = aws_iam_role.cluster.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSComputePolicy"
+  policy_arn = "arn:${local.aws_partition}:iam::aws:policy/AmazonEKSComputePolicy"
 }
 
 resource "aws_iam_role_policy_attachment" "cluster_block_storage" {
   role       = aws_iam_role.cluster.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSBlockStoragePolicy"
+  policy_arn = "arn:${local.aws_partition}:iam::aws:policy/AmazonEKSBlockStoragePolicy"
 }
 
 resource "aws_iam_role_policy_attachment" "cluster_load_balancing" {
   role       = aws_iam_role.cluster.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSLoadBalancingPolicy"
+  policy_arn = "arn:${local.aws_partition}:iam::aws:policy/AmazonEKSLoadBalancingPolicy"
 }
 
 resource "aws_iam_role_policy_attachment" "cluster_networking" {
   role       = aws_iam_role.cluster.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSNetworkingPolicy"
+  policy_arn = "arn:${local.aws_partition}:iam::aws:policy/AmazonEKSNetworkingPolicy"
 }
 
 # IAM role for Auto Mode managed nodes
@@ -60,7 +53,7 @@ resource "aws_iam_role" "node" {
     Statement = [{
       Effect = "Allow"
       Principal = {
-        Service = "ec2.amazonaws.com"
+        Service = "ec2.${local.aws_dns_suffix}"
       }
       Action = "sts:AssumeRole"
     }]
@@ -71,12 +64,12 @@ resource "aws_iam_role" "node" {
 
 resource "aws_iam_role_policy_attachment" "node_minimal" {
   role       = aws_iam_role.node.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSWorkerNodeMinimalPolicy"
+  policy_arn = "arn:${local.aws_partition}:iam::aws:policy/AmazonEKSWorkerNodeMinimalPolicy"
 }
 
 resource "aws_iam_role_policy_attachment" "node_ecr" {
   role       = aws_iam_role.node.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPullOnly"
+  policy_arn = "arn:${local.aws_partition}:iam::aws:policy/AmazonEC2ContainerRegistryPullOnly"
 }
 
 # EKS cluster with Auto Mode
@@ -137,7 +130,7 @@ resource "aws_eks_access_entry" "terraform" {
 resource "aws_eks_access_policy_association" "terraform" {
   cluster_name  = aws_eks_cluster.this.name
   principal_arn = data.aws_iam_session_context.current.issuer_arn
-  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+  policy_arn    = "arn:${local.aws_partition}:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
 
   access_scope {
     type = "cluster"
@@ -173,7 +166,7 @@ resource "aws_eks_access_policy_association" "vouch" {
 
   cluster_name  = aws_eks_cluster.this.name
   principal_arn = var.vouch_role_arn
-  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+  policy_arn    = "arn:${local.aws_partition}:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
 
   access_scope {
     type = "cluster"

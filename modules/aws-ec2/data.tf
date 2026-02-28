@@ -1,3 +1,5 @@
+data "aws_partition" "current" {}
+
 data "aws_ami" "al2023" {
   most_recent = true
   owners      = ["amazon"]
