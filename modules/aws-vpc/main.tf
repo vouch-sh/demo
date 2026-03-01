@@ -16,9 +16,9 @@ resource "aws_internet_gateway" "this" {
   })
 }
 
-# Public subnets across 2 AZs (required by EKS)
+# Public subnets across 3 AZs (required by Redshift Serverless; EKS needs 2+)
 resource "aws_subnet" "public" {
-  count = 2
+  count = 3
 
   vpc_id                  = aws_vpc.this.id
   cidr_block              = cidrsubnet(var.cidr_block, 4, count.index)
@@ -31,12 +31,12 @@ resource "aws_subnet" "public" {
   })
 }
 
-# Private subnets across 2 AZs (available if needed later)
+# Private subnets across 3 AZs (available if needed later)
 resource "aws_subnet" "private" {
-  count = 2
+  count = 3
 
   vpc_id            = aws_vpc.this.id
-  cidr_block        = cidrsubnet(var.cidr_block, 4, count.index + 2)
+  cidr_block        = cidrsubnet(var.cidr_block, 4, count.index + 8)
   availability_zone = data.aws_availability_zones.available.names[count.index]
 
   tags = merge(var.tags, {
@@ -59,7 +59,7 @@ resource "aws_route_table" "public" {
 }
 
 resource "aws_route_table_association" "public" {
-  count = 2
+  count = 3
 
   subnet_id      = aws_subnet.public[count.index].id
   route_table_id = aws_route_table.public.id
@@ -74,7 +74,7 @@ resource "aws_route_table" "private" {
 }
 
 resource "aws_route_table_association" "private" {
-  count = 2
+  count = 3
 
   subnet_id      = aws_subnet.private[count.index].id
   route_table_id = aws_route_table.private.id

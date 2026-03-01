@@ -15,7 +15,7 @@ variable "role_name" {
 }
 
 variable "demo_services_enabled" {
-  description = "Whether to attach demo service permissions (CodeCommit, CodeArtifact, ECR, SSM, EKS, Bedrock)"
+  description = "Whether to attach demo service permissions (CodeCommit, CodeArtifact, ECR, SSM, EKS, RDS, Redshift, Bedrock)"
   type        = bool
   default     = false
 }

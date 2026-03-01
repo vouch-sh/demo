@@ -99,7 +99,7 @@ output "vouch_setup_docker" {
 
 output "vouch_setup_eks" {
   description = "Run this command to configure kubectl for EKS"
-  value       = var.eks_enabled ? "aws eks update-kubeconfig --name ${module.aws_eks[0].cluster_name} --region ${data.aws_region.current.region} --profile vouch" : null
+  value       = var.eks_enabled ? "vouch setup eks --cluster ${module.aws_eks[0].cluster_name} --region ${data.aws_region.current.region} --profile vouch" : null
 }
 
 # Demo commands
@@ -116,4 +116,67 @@ output "ssm_connect_command" {
 output "ssh_connect_command" {
   description = "Run this command to SSH into the EC2 instance with Vouch certificates"
   value       = var.ec2_enabled ? "ssh -t -i ~/.ssh/id_ed25519_vouch ec2-user@${module.aws_ec2[0].instance_public_ip}" : null
+}
+
+# RDS outputs
+output "rds_address" {
+  description = "Hostname of the RDS instance"
+  value       = var.rds_enabled ? module.aws_rds[0].address : null
+}
+
+output "rds_port" {
+  description = "Port of the RDS instance"
+  value       = var.rds_enabled ? module.aws_rds[0].port : null
+}
+
+output "rds_database_name" {
+  description = "Name of the default database"
+  value       = var.rds_enabled ? module.aws_rds[0].database_name : null
+}
+
+output "rds_connect_command" {
+  description = "Run this command to connect to the RDS instance with Vouch IAM auth"
+  value = var.rds_enabled ? join("", [
+    "env AWS_DEFAULT_REGION=${data.aws_region.current.region}",
+    " vouch exec --type rds",
+    " --rds-hostname ${module.aws_rds[0].address}",
+    " --rds-port ${module.aws_rds[0].port}",
+    " --rds-username vouch",
+    " -- psql",
+    " -d ${module.aws_rds[0].database_name}",
+  ]) : null
+}
+
+# Redshift Serverless outputs
+output "redshift_serverless_workgroup_name" {
+  description = "Name of the Redshift Serverless workgroup"
+  value       = var.redshift_serverless_enabled ? module.aws_redshift_serverless[0].workgroup_name : null
+}
+
+output "redshift_serverless_endpoint_address" {
+  description = "Hostname of the Redshift Serverless endpoint"
+  value       = var.redshift_serverless_enabled ? module.aws_redshift_serverless[0].endpoint_address : null
+}
+
+output "redshift_serverless_endpoint_port" {
+  description = "Port of the Redshift Serverless endpoint"
+  value       = var.redshift_serverless_enabled ? module.aws_redshift_serverless[0].endpoint_port : null
+}
+
+output "redshift_serverless_database_name" {
+  description = "Name of the default Redshift database"
+  value       = var.redshift_serverless_enabled ? module.aws_redshift_serverless[0].database_name : null
+}
+
+output "redshift_connect_command" {
+  description = "Run this command to connect to Redshift Serverless with Vouch IAM auth"
+  value = var.redshift_serverless_enabled ? join("", [
+    "env AWS_DEFAULT_REGION=${data.aws_region.current.region}",
+    " vouch exec --type redshift",
+    " --redshift-workgroup ${module.aws_redshift_serverless[0].workgroup_name}",
+    " -- psql",
+    " -h ${module.aws_redshift_serverless[0].endpoint_address}",
+    " -p ${module.aws_redshift_serverless[0].endpoint_port}",
+    " -d ${module.aws_redshift_serverless[0].database_name}",
+  ]) : null
 }

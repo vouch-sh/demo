@@ -64,3 +64,23 @@ module "aws_eks" {
   create_access_entry = var.aws_enabled
   tags                = var.tags
 }
+
+module "aws_rds" {
+  count  = var.rds_enabled ? 1 : 0
+  source = "./modules/aws-rds"
+
+  name_prefix = var.name_prefix
+  vpc_id      = module.aws_vpc[0].vpc_id
+  subnet_ids  = module.aws_vpc[0].public_subnet_ids
+  tags        = var.tags
+}
+
+module "aws_redshift_serverless" {
+  count  = var.redshift_serverless_enabled ? 1 : 0
+  source = "./modules/aws-redshift-serverless"
+
+  name_prefix = var.name_prefix
+  vpc_id      = module.aws_vpc[0].vpc_id
+  subnet_ids  = module.aws_vpc[0].public_subnet_ids
+  tags        = var.tags
+}

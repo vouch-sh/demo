@@ -24,7 +24,7 @@ resource "aws_iam_role_policy_attachment" "readonly" {
   policy_arn = "arn:${local.aws_partition}:iam::aws:policy/ReadOnlyAccess"
 }
 
-# Additional permissions for demo services (CodeCommit, CodeArtifact, ECR, SSM, EKS, Bedrock).
+# Additional permissions for demo services (CodeCommit, CodeArtifact, ECR, SSM, EKS, RDS, Redshift, Bedrock).
 # Only attached when at least one demo service module is enabled.
 resource "aws_iam_role_policy" "demo_services" {
   count = var.demo_services_enabled ? 1 : 0

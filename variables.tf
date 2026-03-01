@@ -55,3 +55,15 @@ variable "eks_enabled" {
   type        = bool
   default     = false
 }
+
+variable "rds_enabled" {
+  description = "Whether to create an RDS PostgreSQL instance with IAM auth for demo"
+  type        = bool
+  default     = false
+}
+
+variable "redshift_serverless_enabled" {
+  description = "Whether to create a Redshift Serverless workgroup with IAM auth for demo"
+  type        = bool
+  default     = false
+}
