@@ -74,3 +74,13 @@ module "aws_rds" {
   subnet_ids  = module.aws_vpc[0].public_subnet_ids
   tags        = var.tags
 }
+
+module "aws_redshift_serverless" {
+  count  = var.redshift_serverless_enabled ? 1 : 0
+  source = "./modules/aws-redshift-serverless"
+
+  name_prefix = var.name_prefix
+  vpc_id      = module.aws_vpc[0].vpc_id
+  subnet_ids  = module.aws_vpc[0].public_subnet_ids
+  tags        = var.tags
+}

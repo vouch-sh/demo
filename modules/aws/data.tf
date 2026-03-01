@@ -111,6 +111,24 @@ data "aws_iam_policy_document" "demo_services" {
   }
 
   statement {
+    sid    = "Redshift"
+    effect = "Allow"
+    actions = [
+      "redshift:GetClusterCredentialsWithIAM",
+    ]
+    resources = ["*"]
+  }
+
+  statement {
+    sid    = "RedshiftServerless"
+    effect = "Allow"
+    actions = [
+      "redshift-serverless:GetCredentials",
+    ]
+    resources = ["*"]
+  }
+
+  statement {
     sid    = "Bedrock"
     effect = "Allow"
     actions = [

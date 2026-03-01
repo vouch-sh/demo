@@ -32,7 +32,7 @@ Depending on which services you enable, you may also need:
 
 - **kubectl** — for EKS
 - **Docker** — for ECR
-- **psql** — for RDS
+- **psql** — for RDS and Redshift Serverless
 - **Session Manager plugin** — for EC2 ([install guide](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html))
 
 ## Step 1: Enroll with Vouch
@@ -75,8 +75,9 @@ codecommit_enabled   = true
 codeartifact_enabled = true
 ecr_enabled          = true
 ec2_enabled          = true
-# eks_enabled        = true   # ~$73/mo control plane — uncomment if needed
-# rds_enabled        = true   # ~$12/mo db.t4g.micro — uncomment if needed
+# eks_enabled                = true  # ~$73/mo control plane — uncomment if needed
+# rds_enabled                = true  # ~$12/mo db.t4g.micro — uncomment if needed
+# redshift_serverless_enabled = true  # pay-per-query — uncomment if needed
 ```
 
 Deploy:
@@ -86,7 +87,7 @@ terraform init
 terraform apply
 ```
 
-**Cost:** With all services enabled except EKS and RDS, this costs ~$4/mo (a single t2.nano). Adding RDS brings it to ~$16/mo (db.t4g.micro). Adding EKS brings it to ~$89/mo due to the control plane charge. All demo service modules default to disabled, so you only pay for what you turn on.
+**Cost:** With all services enabled except EKS, RDS, and Redshift, this costs ~$4/mo (a single t2.nano). Adding RDS brings it to ~$16/mo (db.t4g.micro). Redshift Serverless is pay-per-query (~$4/hour when active, $0 when idle). Adding EKS brings it to ~$89/mo due to the control plane charge. All demo service modules default to disabled, so you only pay for what you turn on.
 
 ## Step 3: Configure AWS Access
 
@@ -200,9 +201,29 @@ Verify you're connected as the IAM-authenticated user:
 SELECT current_user;
 ```
 
-This should return `vouch`. Behind the scenes, Vouch generates a 15-minute IAM authentication token that RDS accepts as a PostgreSQL password. The token is scoped to the specific database instance and user.
+This should return `vouch`. Behind the scenes, Vouch generates a 15-minute IAM authentication token that RDS accepts as the PostgreSQL password over a TLS connection (`sslmode=require`). The token is scoped to the specific database instance and user.
 
-## Step 9: Access Kubernetes (EKS)
+## Step 9: Query a Data Warehouse (Redshift Serverless)
+
+*Requires `redshift_serverless_enabled = true` and psql installed.*
+
+Connect to the Redshift Serverless workgroup using Vouch IAM credentials:
+
+```bash
+$(terraform output -raw redshift_connect_command)
+```
+
+Verify you're connected:
+
+```sql
+SELECT current_user;
+```
+
+This returns an IAM-mapped user like `IAMR:vouch-demo`. Behind the scenes, `vouch exec --type redshift` exchanges your Vouch session for temporary Redshift credentials via the `GetCredentials` API, then injects `PGPASSWORD`, `PGUSER`, and `PGSSLMODE` into the psql environment.
+
+Redshift Serverless charges per RPU-hour (~$4/hour at 8 RPUs) only when queries are running. Destroy when not in use to avoid charges.
+
+## Step 10: Access Kubernetes (EKS)
 
 *Requires `eks_enabled = true` and kubectl installed.*
 
@@ -225,7 +246,7 @@ EKS Auto Mode provisions nodes on-demand, so `kubectl get nodes` will be empty u
 
 The Terraform module creates an EKS Access Entry that maps your Vouch IAM role to cluster admin, so kubectl works immediately.
 
-## Step 10: SSH with Certificates
+## Step 11: SSH with Certificates
 
 Vouch can issue short-lived SSH certificates. The client gets a certificate signed by the Vouch CA; the server is configured to trust that CA.
 

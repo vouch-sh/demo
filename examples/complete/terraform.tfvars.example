@@ -6,4 +6,5 @@ vouch_issuer_url = "https://us.vouch.sh"
 # ecr_enabled          = true
 # ec2_enabled          = true
 # eks_enabled          = true
-# rds_enabled          = true
+# rds_enabled                 = true
+# redshift_serverless_enabled = true

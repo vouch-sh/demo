@@ -21,7 +21,8 @@ module "vouch_demo" {
   ecr_enabled          = var.ecr_enabled
   ec2_enabled          = var.ec2_enabled
   eks_enabled          = var.eks_enabled
-  rds_enabled          = var.rds_enabled
+  rds_enabled                 = var.rds_enabled
+  redshift_serverless_enabled = var.redshift_serverless_enabled
 }
 
 variable "vouch_issuer_url" {
@@ -61,6 +62,12 @@ variable "eks_enabled" {
 
 variable "rds_enabled" {
   description = "Whether to create an RDS PostgreSQL instance with IAM auth"
+  type        = bool
+  default     = false
+}
+
+variable "redshift_serverless_enabled" {
+  description = "Whether to create a Redshift Serverless workgroup with IAM auth"
   type        = bool
   default     = false
 }
@@ -152,6 +159,23 @@ output "rds_database_name" {
 
 output "rds_connect_command" {
   value = module.vouch_demo.rds_connect_command
+}
+
+# Redshift Serverless outputs
+output "redshift_serverless_workgroup_name" {
+  value = module.vouch_demo.redshift_serverless_workgroup_name
+}
+
+output "redshift_serverless_endpoint_address" {
+  value = module.vouch_demo.redshift_serverless_endpoint_address
+}
+
+output "redshift_serverless_database_name" {
+  value = module.vouch_demo.redshift_serverless_database_name
+}
+
+output "redshift_connect_command" {
+  value = module.vouch_demo.redshift_connect_command
 }
 
 # Demo commands
