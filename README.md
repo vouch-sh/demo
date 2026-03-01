@@ -32,6 +32,7 @@ Depending on which services you enable, you may also need:
 
 - **kubectl** — for EKS
 - **Docker** — for ECR
+- **psql** — for RDS
 - **Session Manager plugin** — for EC2 ([install guide](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html))
 
 ## Step 1: Enroll with Vouch
@@ -75,6 +76,7 @@ codeartifact_enabled = true
 ecr_enabled          = true
 ec2_enabled          = true
 # eks_enabled        = true   # ~$73/mo control plane — uncomment if needed
+# rds_enabled        = true   # ~$12/mo db.t4g.micro — uncomment if needed
 ```
 
 Deploy:
@@ -84,7 +86,7 @@ terraform init
 terraform apply
 ```
 
-**Cost:** With all services enabled except EKS, this costs ~$4/mo (a single t2.nano). Adding EKS brings it to ~$77/mo due to the control plane charge. All demo service modules default to disabled, so you only pay for what you turn on.
+**Cost:** With all services enabled except EKS and RDS, this costs ~$4/mo (a single t2.nano). Adding RDS brings it to ~$16/mo (db.t4g.micro). Adding EKS brings it to ~$89/mo due to the control plane charge. All demo service modules default to disabled, so you only pay for what you turn on.
 
 ## Step 3: Configure AWS Access
 
@@ -182,13 +184,31 @@ $(terraform output -raw ssm_connect_command)
 
 The instance has zero inbound security group rules — all access is through SSM using your Vouch AWS profile.
 
-## Step 8: Access Kubernetes (EKS)
+## Step 8: Connect to a Database (RDS)
+
+*Requires `rds_enabled = true` and psql installed.*
+
+Connect to the RDS instance using a Vouch IAM auth token as the password:
+
+```bash
+$(terraform output -raw rds_connect_command)
+```
+
+Verify you're connected as the IAM-authenticated user:
+
+```sql
+SELECT current_user;
+```
+
+This should return `vouch`. Behind the scenes, Vouch generates a 15-minute IAM authentication token that RDS accepts as a PostgreSQL password. The token is scoped to the specific database instance and user.
+
+## Step 9: Access Kubernetes (EKS)
 
 *Requires `eks_enabled = true` and kubectl installed.*
 
 > **Cost warning:** EKS Auto Mode has a ~$73/mo control plane charge. Destroy when not in use.
 
-Update your kubeconfig:
+Configure kubectl to use Vouch for EKS authentication:
 
 ```bash
 $(terraform output -raw vouch_setup_eks)
@@ -205,7 +225,7 @@ EKS Auto Mode provisions nodes on-demand, so `kubectl get nodes` will be empty u
 
 The Terraform module creates an EKS Access Entry that maps your Vouch IAM role to cluster admin, so kubectl works immediately.
 
-## Step 9: SSH with Certificates
+## Step 10: SSH with Certificates
 
 Vouch can issue short-lived SSH certificates. The client gets a certificate signed by the Vouch CA; the server is configured to trust that CA.
 

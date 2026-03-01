@@ -21,6 +21,7 @@ module "vouch_demo" {
   ecr_enabled          = var.ecr_enabled
   ec2_enabled          = var.ec2_enabled
   eks_enabled          = var.eks_enabled
+  rds_enabled          = var.rds_enabled
 }
 
 variable "vouch_issuer_url" {
@@ -54,6 +55,12 @@ variable "ec2_enabled" {
 
 variable "eks_enabled" {
   description = "Whether to create an EKS Auto Mode cluster"
+  type        = bool
+  default     = false
+}
+
+variable "rds_enabled" {
+  description = "Whether to create an RDS PostgreSQL instance with IAM auth"
   type        = bool
   default     = false
 }
@@ -128,6 +135,23 @@ output "vouch_setup_docker" {
 
 output "vouch_setup_eks" {
   value = module.vouch_demo.vouch_setup_eks
+}
+
+# RDS outputs
+output "rds_address" {
+  value = module.vouch_demo.rds_address
+}
+
+output "rds_port" {
+  value = module.vouch_demo.rds_port
+}
+
+output "rds_database_name" {
+  value = module.vouch_demo.rds_database_name
+}
+
+output "rds_connect_command" {
+  value = module.vouch_demo.rds_connect_command
 }
 
 # Demo commands

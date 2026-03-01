@@ -1,4 +1,5 @@
 data "aws_partition" "current" {}
+data "aws_caller_identity" "current" {}
 
 data "tls_certificate" "vouch" {
   url = var.vouch_issuer_url
@@ -98,6 +99,15 @@ data "aws_iam_policy_document" "demo_services" {
       "eks:ListClusters",
     ]
     resources = ["*"]
+  }
+
+  statement {
+    sid    = "RDS"
+    effect = "Allow"
+    actions = [
+      "rds-db:connect",
+    ]
+    resources = ["arn:${local.aws_partition}:rds-db:*:${data.aws_caller_identity.current.account_id}:dbuser:*/*"]
   }
 
   statement {
