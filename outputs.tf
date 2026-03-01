@@ -72,7 +72,7 @@ output "eks_cluster_certificate_authority" {
 # Setup commands — run once after deploy
 output "vouch_setup_aws" {
   description = "Run this command to configure Vouch for AWS"
-  value       = var.aws_enabled ? "vouch setup aws --role ${module.aws[0].role_arn}" : null
+  value       = var.aws_enabled ? "vouch setup aws --role ${module.aws[0].role_arn} --region ${data.aws_region.current.region}" : null
 }
 
 output "vouch_setup_codecommit" {
@@ -99,7 +99,7 @@ output "vouch_setup_docker" {
 
 output "vouch_setup_eks" {
   description = "Run this command to configure kubectl for EKS"
-  value       = var.eks_enabled ? "vouch setup eks --cluster ${module.aws_eks[0].cluster_name} --region ${data.aws_region.current.region} --profile vouch" : null
+  value       = var.eks_enabled ? "vouch setup eks --cluster ${module.aws_eks[0].cluster_name} --profile vouch" : null
 }
 
 # Demo commands
@@ -110,7 +110,7 @@ output "codecommit_clone_command" {
 
 output "ssm_connect_command" {
   description = "Run this command to start an SSM session on the EC2 instance"
-  value       = var.ec2_enabled ? "aws ssm start-session --target ${module.aws_ec2[0].instance_id} --region ${data.aws_region.current.region} --profile vouch" : null
+  value       = var.ec2_enabled ? "aws ssm start-session --target ${module.aws_ec2[0].instance_id} --profile vouch" : null
 }
 
 output "ssh_connect_command" {
@@ -137,8 +137,7 @@ output "rds_database_name" {
 output "rds_connect_command" {
   description = "Run this command to connect to the RDS instance with Vouch IAM auth"
   value = var.rds_enabled ? join("", [
-    "env AWS_DEFAULT_REGION=${data.aws_region.current.region}",
-    " vouch exec --type rds",
+    "vouch exec --type rds",
     " --rds-hostname ${module.aws_rds[0].address}",
     " --rds-port ${module.aws_rds[0].port}",
     " --rds-username vouch",
@@ -171,8 +170,7 @@ output "redshift_serverless_database_name" {
 output "redshift_connect_command" {
   description = "Run this command to connect to Redshift Serverless with Vouch IAM auth"
   value = var.redshift_serverless_enabled ? join("", [
-    "env AWS_DEFAULT_REGION=${data.aws_region.current.region}",
-    " vouch exec --type redshift",
+    "vouch exec --type redshift",
     " --redshift-workgroup ${module.aws_redshift_serverless[0].workgroup_name}",
     " -- psql",
     " -h ${module.aws_redshift_serverless[0].endpoint_address}",
