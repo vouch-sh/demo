@@ -14,9 +14,8 @@ write_files:
     owner: root:root
     permissions: "0644"
     content: |
-%{ for p in ssh_authorized_principals ~}
-      ${p}
-%{ endfor }
+      ${indent(6, join("\n", ssh_authorized_principals))}
+
   - path: /etc/ssh/vouch-revoked-keys
     owner: root:root
     permissions: "0644"
