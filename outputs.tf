@@ -36,6 +36,16 @@ output "codeartifact_domain_owner" {
   value       = var.codeartifact_enabled ? module.aws_codeartifact[0].domain_owner : null
 }
 
+output "codeartifact_npm_store_repository_name" {
+  description = "Name of the CodeArtifact npm-store upstream repository"
+  value       = var.codeartifact_enabled ? module.aws_codeartifact[0].npm_store_repository_name : null
+}
+
+output "codeartifact_pypi_store_repository_name" {
+  description = "Name of the CodeArtifact pypi-store upstream repository"
+  value       = var.codeartifact_enabled ? module.aws_codeartifact[0].pypi_store_repository_name : null
+}
+
 # ECR outputs
 output "ecr_repository_url" {
   description = "URL of the ECR repository"
@@ -85,6 +95,18 @@ output "vouch_setup_codeartifact_npm" {
   value = var.codeartifact_enabled ? join(" ", [
     "vouch setup codeartifact",
     "--tool npm",
+    "--repository ${module.aws_codeartifact[0].repository_name}",
+    "--domain ${module.aws_codeartifact[0].domain_name}",
+    "--domain-owner ${module.aws_codeartifact[0].domain_owner}",
+    "--region ${data.aws_region.current.region}",
+  ]) : null
+}
+
+output "vouch_setup_codeartifact_pip" {
+  description = "Run this command to configure Vouch for CodeArtifact (pip)"
+  value = var.codeartifact_enabled ? join(" ", [
+    "vouch setup codeartifact",
+    "--tool pip",
     "--repository ${module.aws_codeartifact[0].repository_name}",
     "--domain ${module.aws_codeartifact[0].domain_name}",
     "--domain-owner ${module.aws_codeartifact[0].domain_owner}",

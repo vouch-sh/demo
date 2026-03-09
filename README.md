@@ -135,6 +135,10 @@ git push
 
 *Requires `codeartifact_enabled = true`.*
 
+CodeArtifact proxies packages from public registries (npmjs and PyPI) through your AWS account. Configure one or more package managers below.
+
+### npm
+
 Configure npm to use CodeArtifact through Vouch:
 
 ```bash
@@ -153,7 +157,49 @@ Install a package to verify:
 npm install lodash
 ```
 
-npm fetches the package from your CodeArtifact repository, authenticating with Vouch credentials.
+### pnpm
+
+pnpm reads the same npm registry configuration, so after running the npm setup above:
+
+```bash
+pnpm config get registry
+```
+
+Install a package to verify:
+
+```bash
+pnpm add lodash
+```
+
+### pip
+
+Configure pip to use CodeArtifact through Vouch:
+
+```bash
+$(terraform output -raw vouch_setup_codeartifact_pip)
+```
+
+Verify pip is pointing at your CodeArtifact repository:
+
+```bash
+pip config get global.index-url
+```
+
+Install a package to verify:
+
+```bash
+pip install requests
+```
+
+### uv
+
+uv reads the same pip index configuration, so after running the pip setup above:
+
+```bash
+uv pip install requests
+```
+
+All package managers fetch packages from your CodeArtifact repository, authenticating with Vouch credentials.
 
 ## Step 6: Push a Container Image (ECR)
 

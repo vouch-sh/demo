@@ -16,11 +16,11 @@ module "vouch_demo" {
   # k8s_enabled = false
 
   # Demo service modules (all default to false):
-  codecommit_enabled   = var.codecommit_enabled
-  codeartifact_enabled = var.codeartifact_enabled
-  ecr_enabled          = var.ecr_enabled
-  ec2_enabled          = var.ec2_enabled
-  eks_enabled          = var.eks_enabled
+  codecommit_enabled          = var.codecommit_enabled
+  codeartifact_enabled        = var.codeartifact_enabled
+  ecr_enabled                 = var.ecr_enabled
+  ec2_enabled                 = var.ec2_enabled
+  eks_enabled                 = var.eks_enabled
   rds_enabled                 = var.rds_enabled
   redshift_serverless_enabled = var.redshift_serverless_enabled
 }
@@ -100,6 +100,14 @@ output "codeartifact_domain_owner" {
   value = module.vouch_demo.codeartifact_domain_owner
 }
 
+output "codeartifact_npm_store_repository_name" {
+  value = module.vouch_demo.codeartifact_npm_store_repository_name
+}
+
+output "codeartifact_pypi_store_repository_name" {
+  value = module.vouch_demo.codeartifact_pypi_store_repository_name
+}
+
 # ECR outputs
 output "ecr_repository_url" {
   value = module.vouch_demo.ecr_repository_url
@@ -134,6 +142,10 @@ output "vouch_setup_codecommit" {
 
 output "vouch_setup_codeartifact_npm" {
   value = module.vouch_demo.vouch_setup_codeartifact_npm
+}
+
+output "vouch_setup_codeartifact_pip" {
+  value = module.vouch_demo.vouch_setup_codeartifact_pip
 }
 
 output "vouch_setup_docker" {

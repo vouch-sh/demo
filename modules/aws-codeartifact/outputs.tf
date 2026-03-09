@@ -22,3 +22,13 @@ output "domain_owner" {
   description = "AWS account ID that owns the CodeArtifact domain"
   value       = aws_codeartifact_domain.this.owner
 }
+
+output "npm_store_repository_name" {
+  description = "Name of the CodeArtifact npm-store upstream repository"
+  value       = aws_codeartifact_repository.npm_store.repository
+}
+
+output "pypi_store_repository_name" {
+  description = "Name of the CodeArtifact pypi-store upstream repository"
+  value       = aws_codeartifact_repository.pypi_store.repository
+}
