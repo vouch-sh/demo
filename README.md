@@ -1,10 +1,83 @@
 # Vouch Demo
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Terraform](https://img.shields.io/badge/Terraform-%3E%3D%201.10-7B42BC?logo=terraform)](https://www.terraform.io/)
+[![AWS Provider](https://img.shields.io/badge/AWS_Provider-%3E%3D%206.0-FF9900?logo=amazonaws)](https://registry.terraform.io/providers/hashicorp/aws/latest)
+
 This tutorial walks you through using [Vouch](https://github.com/vouch-sh) to authenticate to AWS services with OIDC-based workload identity. You'll deploy demo infrastructure with Terraform, then use Vouch credentials to push code, install packages, push container images, connect to servers, and access Kubernetes clusters — all without long-lived AWS credentials.
+
+## Table of Contents
+
+- [Architecture](#architecture)
+- [Inputs](#inputs)
+- [What You'll Need](#what-youll-need)
+- [Step 1: Enroll with Vouch](#step-1-enroll-with-vouch)
+- [Step 2: Deploy the Infrastructure](#step-2-deploy-the-infrastructure)
+- [Step 3: Configure AWS Access](#step-3-configure-aws-access)
+- [Step 4: Push Code with Git (CodeCommit)](#step-4-push-code-with-git-codecommit)
+- [Step 5: Install Packages (CodeArtifact)](#step-5-install-packages-codeartifact)
+- [Step 6: Push a Container Image (ECR)](#step-6-push-a-container-image-ecr)
+- [Step 7: Connect to a Server (EC2 + Session Manager)](#step-7-connect-to-a-server-ec2--session-manager)
+- [Step 8: Connect to a Database (RDS)](#step-8-connect-to-a-database-rds)
+- [Step 9: Query a Data Warehouse (Redshift Serverless)](#step-9-query-a-data-warehouse-redshift-serverless)
+- [Step 10: Access Kubernetes (EKS)](#step-10-access-kubernetes-eks)
+- [Step 11: SSH with Certificates](#step-11-ssh-with-certificates)
+- [Cleanup](#cleanup)
+- [License](#license)
+
+## Architecture
+
+The root Terraform module is a composition layer that wires together independent sub-modules. Each service is toggled via `*_enabled` boolean variables and defaults to `false` to minimize cost.
+
+| Module | Description | Default |
+|--------|-------------|---------|
+| `modules/aws` | IAM OIDC provider + Vouch role with trust policy | Enabled |
+| `modules/k8s` | Kubernetes namespace, ServiceAccount (IRSA), RBAC | Enabled |
+| `modules/aws-vpc` | VPC, subnets, IGW (auto-created when EC2/EKS/RDS/Redshift needed) | Auto |
+| `modules/aws-codecommit` | CodeCommit Git repository | Disabled |
+| `modules/aws-codeartifact` | CodeArtifact domain + npm/PyPI repositories | Disabled |
+| `modules/aws-ecr` | ECR container image repository | Disabled |
+| `modules/aws-ec2` | EC2 instance with SSM + SSH certificate support | Disabled |
+| `modules/aws-eks` | EKS Auto Mode cluster with Access Entries | Disabled |
+| `modules/aws-rds` | RDS PostgreSQL with IAM authentication | Disabled |
+| `modules/aws-redshift-serverless` | Redshift Serverless with IAM authentication | Disabled |
+
+The root module passes outputs between sub-modules — VPC outputs flow into EC2/EKS/RDS/Redshift, the Vouch IAM role ARN flows into EKS for Access Entries, and service ARNs flow back to scope IAM policies.
+
+An independent [Ansible role](#step-11-ssh-with-certificates) (`ansible/roles/vouch_sshd`) configures SSH certificate authentication on target hosts.
+
+## Inputs
+
+| Name | Description | Type | Default | Required |
+|------|-------------|------|---------|----------|
+| `vouch_issuer_url` | OIDC issuer URL for Vouch (e.g. `https://us.vouch.sh`) | `string` | — | Yes |
+| `name_prefix` | Prefix for resource names | `string` | `"vouch-demo"` | No |
+| `tags` | Tags to apply to all resources | `map(string)` | `{}` | No |
+| `aws_enabled` | Deploy AWS Vouch integration (IAM OIDC + role) | `bool` | `true` | No |
+| `codecommit_enabled` | Create a CodeCommit repository | `bool` | `false` | No |
+| `codeartifact_enabled` | Create CodeArtifact domain and repository | `bool` | `false` | No |
+| `ecr_enabled` | Create an ECR repository | `bool` | `false` | No |
+| `ec2_enabled` | Create an EC2 instance with SSM access | `bool` | `false` | No |
+| `eks_enabled` | Create an EKS Auto Mode cluster | `bool` | `false` | No |
+| `rds_enabled` | Create an RDS PostgreSQL instance with IAM auth | `bool` | `false` | No |
+| `redshift_serverless_enabled` | Create a Redshift Serverless workgroup with IAM auth | `bool` | `false` | No |
 
 ## What You'll Need
 
-- **Terraform** >= 1.10
+### Requirements
+
+| Provider | Version |
+|----------|---------|
+| [Terraform](https://www.terraform.io/) | >= 1.10 |
+| [hashicorp/aws](https://registry.terraform.io/providers/hashicorp/aws/latest) | >= 6.0 |
+| [hashicorp/tls](https://registry.terraform.io/providers/hashicorp/tls/latest) | >= 4.0 |
+| [hashicorp/time](https://registry.terraform.io/providers/hashicorp/time/latest) | >= 0.12 |
+| [hashicorp/cloudinit](https://registry.terraform.io/providers/hashicorp/cloudinit/latest) | >= 2.3 |
+| [hashicorp/random](https://registry.terraform.io/providers/hashicorp/random/latest) | >= 3.6 |
+| [hashicorp/external](https://registry.terraform.io/providers/hashicorp/external/latest) | >= 2.3 |
+
+### Tools
+
 - **AWS account** with admin access
 - **YubiKey** or FIDO2 authenticator
 - **Vouch CLI** — install for your platform:
@@ -87,7 +160,15 @@ terraform init
 terraform apply
 ```
 
-**Cost:** With all services enabled except EKS, RDS, and Redshift, this costs ~$4/mo (a single t2.nano). Adding RDS brings it to ~$16/mo (db.t4g.micro). Redshift Serverless is pay-per-query (~$4/hour when active, $0 when idle). Adding EKS brings it to ~$89/mo due to the control plane charge. All demo service modules default to disabled, so you only pay for what you turn on.
+**Cost estimates** (all services default to disabled — you only pay for what you turn on):
+
+| Service | Approximate Cost | Notes |
+|---------|-----------------|-------|
+| CodeCommit, CodeArtifact, ECR | $0 | Free tier / negligible |
+| EC2 | ~$4/mo | t2.nano |
+| RDS | ~$12/mo | db.t4g.micro PostgreSQL |
+| Redshift Serverless | ~$4/hr when active | Pay-per-query, $0 when idle |
+| EKS | ~$73/mo | Control plane charge |
 
 ## Step 3: Configure AWS Access
 
@@ -375,3 +456,7 @@ Destroy all provisioned infrastructure:
 cd examples/complete
 terraform destroy
 ```
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
