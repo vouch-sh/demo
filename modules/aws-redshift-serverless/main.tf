@@ -36,8 +36,8 @@ resource "random_password" "admin" {
 resource "aws_redshiftserverless_namespace" "this" {
   namespace_name = "${var.name_prefix}-redshift"
 
-  db_name            = "vouch"
-  admin_username     = "vouchadmin"
+  db_name             = "vouch"
+  admin_username      = "vouchadmin"
   admin_user_password = random_password.admin.result
 
   tags = var.tags
