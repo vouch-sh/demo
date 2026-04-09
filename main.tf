@@ -5,7 +5,7 @@ module "aws" {
   vouch_issuer_url = var.vouch_issuer_url
 
   demo_services_enabled     = local.demo_services_enabled
-  codecommit_repository_arn = var.codecommit_enabled ? module.aws_codecommit[0].arn : ""
+  codecommit_repository_arn = var.codecommit_enabled ? one(module.aws_codecommit[*].arn) : ""
 
   tags = var.tags
 }
@@ -47,8 +47,8 @@ module "aws_ec2" {
   source = "./modules/aws-ec2"
 
   name_prefix               = var.name_prefix
-  subnet_id                 = module.aws_vpc[0].public_subnet_ids[0]
-  vpc_id                    = module.aws_vpc[0].vpc_id
+  subnet_id                 = one(module.aws_vpc[*].public_subnet_ids)[0]
+  vpc_id                    = one(module.aws_vpc[*].vpc_id)
   vouch_issuer_url          = var.vouch_issuer_url
   ssh_authorized_principals = local.ssh_authorized_principals
   tags                      = var.tags
@@ -59,8 +59,8 @@ module "aws_eks" {
   source = "./modules/aws-eks"
 
   name_prefix         = var.name_prefix
-  subnet_ids          = module.aws_vpc[0].public_subnet_ids
-  vouch_role_arn      = var.aws_enabled ? module.aws[0].role_arn : ""
+  subnet_ids          = one(module.aws_vpc[*].public_subnet_ids)
+  vouch_role_arn      = var.aws_enabled ? one(module.aws[*].role_arn) : ""
   create_access_entry = var.aws_enabled
   tags                = var.tags
 }
@@ -70,8 +70,8 @@ module "aws_rds" {
   source = "./modules/aws-rds"
 
   name_prefix = var.name_prefix
-  vpc_id      = module.aws_vpc[0].vpc_id
-  subnet_ids  = module.aws_vpc[0].public_subnet_ids
+  vpc_id      = one(module.aws_vpc[*].vpc_id)
+  subnet_ids  = one(module.aws_vpc[*].public_subnet_ids)
   tags        = var.tags
 }
 
@@ -80,7 +80,7 @@ module "aws_redshift_serverless" {
   source = "./modules/aws-redshift-serverless"
 
   name_prefix = var.name_prefix
-  vpc_id      = module.aws_vpc[0].vpc_id
-  subnet_ids  = module.aws_vpc[0].public_subnet_ids
+  vpc_id      = one(module.aws_vpc[*].vpc_id)
+  subnet_ids  = one(module.aws_vpc[*].public_subnet_ids)
   tags        = var.tags
 }
